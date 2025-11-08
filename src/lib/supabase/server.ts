@@ -1,8 +1,7 @@
-// server-only για να αποτρέψεις import από client bundle
-import 'server-only';
-
+// C:\Users\user1\Desktop\QRate\src\lib\supabase\server.ts
+import 'server-only'; // αποτρέπει import από client
 import { cookies } from 'next/headers';
-import { createServerClient } from '@supabase/ssr';
+import { createServerClient, type CookieOptions } from '@supabase/ssr';
 
 export function createServerSupabaseClient() {
   const cookieStore = cookies();
@@ -15,11 +14,10 @@ export function createServerSupabaseClient() {
         get(name: string) {
           return cookieStore.get(name)?.value;
         },
-        set(name: string, value: string, options: any) {
-          // next/headers cookies API γράφει μέσω set
+        set(name: string, value: string, options: CookieOptions) {
           cookieStore.set({ name, value, ...options });
         },
-        remove(name: string, options: any) {
+        remove(name: string, options: CookieOptions) {
           cookieStore.set({ name, value: '', ...options });
         },
       },
