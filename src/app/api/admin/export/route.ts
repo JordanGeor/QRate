@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/lib/supabase';
+import { supabaseAdmin } from '@/lib/supabase/admin';
 
 function toCSV(rows: any[]) {
   const headers = ['id','created_at','rating','comment','contact','location','campaign'];

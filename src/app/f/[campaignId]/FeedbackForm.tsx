@@ -1,89 +1,121 @@
 'use client';
 
-import { useState } from 'react';
-import Link from 'next/link';
+import { useMemo, useState } from 'react';
+import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 
-export function FeedbackForm({ campaignId, googleLink }: { campaignId: string; googleLink: string }) {
-  const [rating, setRating] = useState(0);
+export default function FeedbackForm({ campaignId }: { campaignId: string }) {
+  const supabase = useMemo(() => createBrowserSupabaseClient(), []);
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [rating, setRating] = useState<number | ''>('');
   const [comment, setComment] = useState('');
-  const [contact, setContact] = useState('');
-  const [opt, setOpt] = useState(true);
-  const [done, setDone] = useState(false);
+  const [status, setStatus] = useState<'idle' | 'submitting' | 'ok' | 'error'>('idle');
+  const [error, setError] = useState<string | null>(null);
 
-  const low = rating > 0 && rating <= 3;
+  async function onSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setStatus('submitting');
+    setError(null);
 
-  async function submit() {
-    const res = await fetch('/api/feedback', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ campaignId, rating, comment, contact, contactOptIn: opt })
-    });
-    const json = await res.json();
-    if (json.ok) setDone(true);
-    else alert(json.error ?? 'Σφάλμα');
+    const r = Number(rating);
+    if (!r || r < 1 || r > 5) {
+      setStatus('error');
+      setError('Επίλεξε βαθμολογία 1–5');
+      return;
+    }
+
+    if (!comment.trim()) {
+      setStatus('error');
+      setError('Το σχόλιο είναι υποχρεωτικό');
+      return;
+    }
+
+    // 👇 ΕΔΩ ΜΠΑΙΝΕΙ ΤΟ insert
+    const { error } = await supabase
+      .from('feedbacks')
+      .insert({
+        campaign_id: campaignId,
+        name: name || null,
+        email: email || null,
+        rating: r,
+        comment: comment.trim(),
+        source: 'qr',
+      });
+
+    if (error) {
+      setStatus('error');
+      setError(error.message);
+      return;
+    }
+
+    setStatus('ok');
   }
 
-  if (done) {
+  if (status === 'ok') {
     return (
-      <div className="space-y-4">
-        <h2 className="text-lg font-medium">Ευχαριστούμε για το feedback!</h2>
-        <a
-          href={googleLink || '#'}
-          target="_blank"
-          rel="noreferrer"
-          className="block w-full text-center rounded-xl px-4 py-3 font-medium border hover:bg-gray-50"
-        >
-          Αφήστε κριτική στο Google
-        </a>
-        {low && (
-          <p className="text-sm text-gray-600">
-            Κρίμα που δεν ήταν τέλεια. Θέλετε να μας δώσετε ευκαιρία να το διορθώσουμε;
-          </p>
-        )}
+      <div className="text-center py-12">
+        <h1 className="text-xl font-semibold mb-2">Ευχαριστούμε! ✅</h1>
+        <p className="text-gray-600">Η κριτική σου καταχωρήθηκε.</p>
       </div>
     );
   }
 
   return (
-    <div className="space-y-4">
-      <div className="flex gap-2">
-        {[1, 2, 3, 4, 5].map(n => (
-          <button
-            key={n}
-            onClick={() => setRating(n)}
-            className={`h-10 w-10 rounded-full border ${rating >= n ? 'bg-black text-white' : 'bg-white'}`}
-          >
-            {n}
-          </button>
-        ))}
+    <form onSubmit={onSubmit} className="space-y-4">
+      <div>
+        <label className="block text-sm mb-1">Όνομα (προαιρετικό)</label>
+        <input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          className="w-full border rounded-lg px-3 py-2"
+        />
       </div>
 
-      <textarea
-        placeholder="Πείτε μας τι πήγε καλά ή τι να βελτιώσουμε…"
-        className="w-full border rounded-xl p-3"
-        value={comment}
-        onChange={e => setComment(e.target.value)}
-      />
+      <div>
+        <label className="block text-sm mb-1">Email (προαιρετικό)</label>
+        <input
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          className="w-full border rounded-lg px-3 py-2"
+        />
+      </div>
 
-      <input
-        className="w-full border rounded-xl p-3"
-        placeholder="Email ή τηλέφωνο (προαιρετικό)"
-        value={contact}
-        onChange={e => setContact(e.target.value)}
-      />
+      <div>
+        <label className="block text-sm mb-1">Βαθμολογία (1–5)</label>
+        <select
+          value={rating}
+          onChange={(e) => setRating(Number(e.target.value))}
+          className="w-full border rounded-lg px-3 py-2"
+        >
+          <option value="">Επίλεξε...</option>
+          {[1, 2, 3, 4, 5].map((n) => (
+            <option key={n} value={n}>
+              {n}
+            </option>
+          ))}
+        </select>
+      </div>
 
-      <label className="text-sm flex items-center gap-2">
-        <input type="checkbox" checked={opt} onChange={e => setOpt(e.target.checked)} />
-        Θέλω να επικοινωνήσετε μαζί μου αν χρειαστεί.
-      </label>
+      <div>
+        <label className="block text-sm mb-1">Σχόλιο</label>
+        <textarea
+          value={comment}
+          onChange={(e) => setComment(e.target.value)}
+          className="w-full border rounded-lg px-3 py-2"
+          rows={4}
+        />
+      </div>
+
+      {error && <p className="text-sm text-red-600">{error}</p>}
 
       <button
-        onClick={submit}
-        disabled={!rating}
-        className="w-full rounded-xl bg-black text-white py-3 font-medium disabled:opacity-50"
+        type="submit"
+        disabled={status === 'submitting'}
+        className="w-full border rounded-lg px-3 py-2 hover:bg-gray-50 disabled:opacity-50"
       >
-        Υποβολή
+        {status === 'submitting' ? 'Αποστολή...' : 'Υποβολή'}
       </button>
-    </div>
+    </form>
   );
 }

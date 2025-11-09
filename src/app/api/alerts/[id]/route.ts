@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { supabaseAdmin } from '@/lib/supabase';
+import { supabaseAdmin } from '@/lib/supabase/admin';
 
 const bodySchema = z.object({
   status: z.enum(['open', 'resolved', 'ignored']),
