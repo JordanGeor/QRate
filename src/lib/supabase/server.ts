@@ -1,10 +1,10 @@
-// C:\Users\user1\Desktop\QRate\src\lib\supabase\server.ts
-import 'server-only'; // αποτρέπει import από client
+import 'server-only';
 import { cookies } from 'next/headers';
 import { createServerClient, type CookieOptions } from '@supabase/ssr';
 
-export function createServerSupabaseClient() {
-  const cookieStore = cookies();
+export async function createServerSupabaseClient() {
+  // 🔑 Next 16: cookies() είναι Promise -> πρέπει await
+  const cookieStore = await cookies();
 
   return createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -12,13 +12,22 @@ export function createServerSupabaseClient() {
     {
       cookies: {
         get(name: string) {
+          // χρησιμοποίησε get (όχι getAll)
           return cookieStore.get(name)?.value;
         },
         set(name: string, value: string, options: CookieOptions) {
-          cookieStore.set({ name, value, ...options });
+          try {
+            cookieStore.set({ name, value, ...options });
+          } catch {
+            // no-op σε Server Components
+          }
         },
         remove(name: string, options: CookieOptions) {
-          cookieStore.set({ name, value: '', ...options });
+          try {
+            cookieStore.set({ name, value: '', ...options });
+          } catch {
+            // no-op σε Server Components
+          }
         },
       },
     }
