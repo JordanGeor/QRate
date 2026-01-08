@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="header">
+  <a class="back" href="/admin/restaurants/{{ r.id }}">← Back</a>
+  <h1>Contact Requests • {{ r.name_el }}</h1>
+</div>
+
+<div class="card">
+  {% if not contacts %}
+    <p class="muted">Δεν υπάρχουν αιτήματα επικοινωνίας.</p>
+  {% endif %}
+
+  {% for c in contacts %}
+    <div class="item">
+      <div>
+        <div class="item-name">
+          <a href="/admin/restaurants/{{ r.id }}/contacts/{{ c.id }}">#{{ c.id }}</a>
+        </div>
+        <div class="item-desc">
+          {{ c.created_at }}
+          {% if c.name %} • {{ c.name }}{% endif %}
+          {% if c.phone %} • {{ c.phone }}{% endif %}
+          {% if c.email %} • {{ c.email }}{% endif %}
+          {% if c.review_id %} • review #{{ c.review_id }}{% endif %}
+        </div>
+        <div class="item-desc">
+          {{ (c.message or "")[:120] }}{% if (c.message or "")|length > 120 %}…{% endif %}
+        </div>
+      </div>
+    </div>
+  {% endfor %}
+</div>
+{% endblock %}

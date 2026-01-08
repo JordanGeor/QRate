@@ -2,104 +2,111 @@
 {% block content %}
 <div class="card center">
   <h1>{{ tr(lang,"Ευχαριστούμε!","Thank you!") }}</h1>
-
   <p class="muted">{{ tr(lang,"Η αξιολόγηση καταχωρήθηκε.","Your review was submitted.") }}</p>
 
-  {# ✅ Μήνυμα όταν στάλθηκε φόρμα επικοινωνίας #}
+  {# ✅ Αν στάλθηκε φόρμα επικοινωνίας: δείχνουμε ΜΟΝΟ success + κουμπιά #}
   {% if contact_ok %}
-    <p class="muted">✅ {{ tr(lang,
-      "Λάβαμε το μήνυμά σου. Θα επικοινωνήσουμε σύντομα.",
-      "We received your message. We'll contact you soon.") }}
+    <p class="muted" style="margin-top:12px;">
+      ✅ {{ tr(lang,
+        "Λάβαμε το μήνυμά σου. Θα επικοινωνήσουμε σύντομα.",
+        "We received your message. We'll contact you soon.") }}
     </p>
-  {% endif %}
 
-  {# ✅ Αρνητική ροή: πρώτα επικοινωνία με υπεύθυνο (χωρίς gating) #}
-
-  {% if is_negative %}
-    <div style="margin-top:16px; text-align:left;">
-      <h3 style="margin:0 0 8px 0;">
-        {{ tr(lang, "Θέλεις να το λύσουμε άμεσα;", "Want us to fix it quickly?") }}
-      </h3>
-      <p class="muted" style="margin:0 0 12px 0;">
-        {{ tr(lang,
-          "Προτείνουμε πρώτα να επικοινωνήσεις μαζί μας για να λυθεί το θέμα.",
-          "We recommend contacting us first so we can resolve the issue.") }}
-      </p>
-
-      <a class="btn" href="/r/{{ r.slug }}/contact?lang={{ lang }}&rid={{ request.query_params.get('rid','') }}">
-        {{ tr(lang, "Επικοινωνία με τον υπεύθυνο", "Contact the manager") }}
-      </a>
-
-      <p class="muted" style="margin-top:10px;">
-        {{ tr(lang,
-          "Αν παρ’ όλα αυτά θέλεις, μπορείς να αφήσεις κριτική και στο Google παρακάτω.",
-          "If you still want, you can also leave a Google review below.") }}
-      </p>
+    <div class="btns" style="margin-top:14px;">
+      <a class="btn" href="/r/{{ r.slug }}?lang={{ lang }}">{{ tr(lang,"Επιστροφή","Back") }}</a>
+      <a class="btn secondary" href="/r/{{ r.slug }}/menu?lang={{ lang }}">{{ tr(lang,"Μενού","Menu") }}</a>
     </div>
 
-    <hr style="margin:16px 0;">
-  {% endif %}
+  {% else %}
 
-  {# ✅ Google (πάντα διαθέσιμο): Copy & Open όταν έχουμε κείμενο #}
-  {% if google_review_url and review_text %}
-    <textarea id="reviewText" style="position:absolute; left:-9999px;">{{ review_text|e }}</textarea>
+    {# ✅ Αρνητική ροή: πρώτα επικοινωνία με υπεύθυνο #}
+    {% if is_negative %}
+      <div style="margin-top:16px; text-align:left;">
+        <h3 style="margin:0 0 8px 0;">
+          {{ tr(lang, "Θέλεις να το λύσουμε άμεσα;", "Want us to fix it quickly?") }}
+        </h3>
+        <p class="muted" style="margin:0 0 12px 0;">
+          {{ tr(lang,
+            "Προτείνουμε πρώτα να επικοινωνήσεις μαζί μας για να λυθεί το θέμα.",
+            "We recommend contacting us first so we can resolve the issue.") }}
+        </p>
 
-    <div style="margin-top: 16px;">
-      <a href="{{ google_review_url }}"
-         target="_blank"
-         rel="noopener noreferrer"
-         class="btn secondary"
-         onclick="copyAndGo(event)">
-        ⭐ {{ tr(lang,
-          is_negative and "Αν παρ’ όλα αυτά: Αντιγραφή & Google" or "Αντιγραφή & Άνοιγμα Google",
-          is_negative and "If you still want: Copy & Google" or "Copy & Open Google"
-        ) }}
-      </a>
+        <a class="btn" href="/r/{{ r.slug }}/contact?lang={{ lang }}&rid={{ request.query_params.get('rid','') }}">
+          {{ tr(lang, "Επικοινωνία με τον υπεύθυνο", "Contact the manager") }}
+        </a>
 
-      <p class="muted" style="margin-top:8px;">
-        {{ tr(lang, "Μετά στο Google κάνε Ctrl+V και πάτα Υποβολή.", "On Google press Ctrl+V then Submit.") }}
-      </p>
-    </div>
+        <p class="muted" style="margin-top:10px;">
+          {{ tr(lang,
+            "Αν παρ’ όλα αυτά θέλεις, μπορείς να αφήσεις κριτική και στο Google παρακάτω.",
+            "If you still want, you can also leave a Google review below.") }}
+        </p>
+      </div>
 
-    <script>
-      async function copyAndGo(e) {
-        e.preventDefault();
-        const url = e.currentTarget.href;
-        const text = document.getElementById("reviewText").value;
+      <hr style="margin:16px 0;">
+    {% endif %}
 
-        try {
-          await navigator.clipboard.writeText(text);
-        } catch (err) {
-          const ta = document.getElementById("reviewText");
-          ta.style.position = "fixed";
-          ta.style.left = "0";
-          ta.style.top = "0";
-          ta.focus();
-          ta.select();
-          ta.setSelectionRange(0, 999999);
-          document.execCommand("copy");
-          ta.style.position = "absolute";
-          ta.style.left = "-9999px";
+    {# ✅ Google (πάντα διαθέσιμο): Copy & Open όταν έχουμε κείμενο #}
+    {% if google_review_url and review_text %}
+      <textarea id="reviewText" style="position:absolute; left:-9999px;">{{ review_text|e }}</textarea>
+
+      <div style="margin-top: 16px;">
+        <a href="{{ google_review_url }}"
+           target="_blank"
+           rel="noopener noreferrer"
+           class="btn secondary"
+           onclick="copyAndGo(event)">
+          ⭐ {{ tr(lang,
+            is_negative and "Αν παρ’ όλα αυτά: Αντιγραφή & Google" or "Αντιγραφή & Άνοιγμα Google",
+            is_negative and "If you still want: Copy & Google" or "Copy & Open Google"
+          ) }}
+        </a>
+
+        <p class="muted" style="margin-top:8px;">
+          {{ tr(lang, "Μετά στο Google κάνε Ctrl+V και πάτα Υποβολή.", "On Google press Ctrl+V then Submit.") }}
+        </p>
+      </div>
+
+      <script>
+        async function copyAndGo(e) {
+          e.preventDefault();
+          const url = e.currentTarget.href;
+          const text = document.getElementById("reviewText").value;
+
+          try {
+            await navigator.clipboard.writeText(text);
+          } catch (err) {
+            const ta = document.getElementById("reviewText");
+            ta.style.position = "fixed";
+            ta.style.left = "0";
+            ta.style.top = "0";
+            ta.focus();
+            ta.select();
+            ta.setSelectionRange(0, 999999);
+            document.execCommand("copy");
+            ta.style.position = "absolute";
+            ta.style.left = "-9999px";
+          }
+
+          window.open(url, "_blank", "noopener,noreferrer");
         }
+      </script>
 
-        window.open(url, "_blank", "noopener,noreferrer");
-      }
-    </script>
+    {% elif google_review_url %}
+      <div style="margin-top: 16px;">
+        <a href="{{ google_review_url }}"
+           target="_blank"
+           rel="noopener noreferrer"
+           class="btn secondary">
+          ⭐ {{ tr(lang, "Άφησε κριτική στο Google", "Leave a Google review") }}
+        </a>
+      </div>
+    {% endif %}
 
-  {% elif google_review_url %}
-    <div style="margin-top: 16px;">
-      <a href="{{ google_review_url }}"
-         target="_blank"
-         rel="noopener noreferrer"
-         class="btn secondary">
-        ⭐ {{ tr(lang, "Άφησε κριτική στο Google", "Leave a Google review") }}
-      </a>
+    <div class="btns">
+      <a class="btn" href="/r/{{ r.slug }}?lang={{ lang }}">{{ tr(lang,"Επιστροφή","Back") }}</a>
+      <a class="btn secondary" href="/r/{{ r.slug }}/menu?lang={{ lang }}">{{ tr(lang,"Μενού","Menu") }}</a>
     </div>
-  {% endif %}
 
-  <div class="btns">
-    <a class="btn" href="/r/{{ r.slug }}?lang={{ lang }}">{{ tr(lang,"Επιστροφή","Back") }}</a>
-    <a class="btn secondary" href="/r/{{ r.slug }}/menu?lang={{ lang }}">{{ tr(lang,"Μενού","Menu") }}</a>
-  </div>
+  {% endif %}
 </div>
 {% endblock %}

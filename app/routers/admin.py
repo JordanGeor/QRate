@@ -3,7 +3,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 from ..db import get_db
-from ..models import User, Restaurant, MenuCategory, MenuItem, Review
+from ..models import User, Restaurant, MenuCategory, MenuItem, Review, ContactRequest
 from ..auth import verify_password, hash_password, set_login_cookie, clear_login_cookie, get_current_user
 
 router = APIRouter(prefix="/admin")
@@ -198,3 +198,47 @@ def bootstrap_admin(email: str = Form(...), password: str = Form(...), db: Sessi
     db.add(u)
     db.commit()
     return {"ok": True, "email": email}
+
+@router.get("/restaurants/{rid}/contacts", response_class=HTMLResponse)
+def admin_contacts(request: Request, rid: int, db: Session = Depends(get_db)):
+    user = get_current_user(db, request)
+    r = db.query(Restaurant).filter(Restaurant.id == rid).first()
+    if not r:
+        raise HTTPException(status_code=404)
+    ensure_owner(user, r)
+
+    contacts = (
+        db.query(ContactRequest)
+        .filter(ContactRequest.restaurant_id == r.id)
+        .order_by(ContactRequest.created_at.desc())
+        .limit(200)
+        .all()
+    )
+
+    return templates.TemplateResponse(
+        "admin_contacts.html",
+        {"request": request, "r": r, "contacts": contacts},
+    )
+
+
+@router.get("/restaurants/{rid}/contacts/{cid}", response_class=HTMLResponse)
+def admin_contact_detail(request: Request, rid: int, cid: int, db: Session = Depends(get_db)):
+    user = get_current_user(db, request)
+    r = db.query(Restaurant).filter(Restaurant.id == rid).first()
+    if not r:
+        raise HTTPException(status_code=404)
+    ensure_owner(user, r)
+
+    cr = (
+        db.query(ContactRequest)
+        .filter(ContactRequest.id == cid, ContactRequest.restaurant_id == r.id)
+        .first()
+    )
+    if not cr:
+        raise HTTPException(status_code=404)
+
+    return templates.TemplateResponse(
+        "admin_contact_detail.html",
+        {"request": request, "r": r, "cr": cr},
+    )
+

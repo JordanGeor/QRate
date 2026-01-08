@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="header">
+  <a class="back" href="/admin/restaurants/{{ r.id }}/contacts">← Back</a>
+  <h1>Contact #{{ cr.id }}</h1>
+</div>
+
+<div class="card">
+  <p class="muted">{{ cr.created_at }}</p>
+
+  <div class="pill">
+    <div><b>Name:</b> {{ cr.name or "-" }}</div>
+    <div><b>Email:</b> {{ cr.email or "-" }}</div>
+    <div><b>Phone:</b> {{ cr.phone or "-" }}</div>
+    <div><b>Review ID:</b> {{ cr.review_id or "-" }}</div>
+  </div>
+
+  <div class="pill">
+    <b>Message</b>
+    <div style="white-space: pre-wrap; margin-top:8px;">{{ cr.message or "" }}</div>
+  </div>
+</div>
+{% endblock %}

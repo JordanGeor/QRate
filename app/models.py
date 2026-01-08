@@ -117,12 +117,8 @@ class ContactRequest(Base):
     __tablename__ = "contact_requests"
 
     id = Column(Integer, primary_key=True)
-    restaurant_id = Column(
-        Integer, ForeignKey("restaurants.id"), nullable=False, index=True
-    )
-    review_id = Column(
-        Integer, ForeignKey("reviews.id"), nullable=True, index=True
-    )
+    restaurant_id = Column(Integer, ForeignKey("restaurants.id"), nullable=False, index=True)
+    review_id = Column(Integer, ForeignKey("reviews.id"), nullable=True, index=True)
 
     name = Column(String, nullable=True)
     email = Column(String, nullable=True)
@@ -131,5 +127,8 @@ class ContactRequest(Base):
 
     created_at = Column(DateTime, server_default=func.now(), nullable=False)
 
+    is_handled = Column(Boolean, default=False, nullable=False, index=True)  # ✅ ΠΡΟΣΘΗΚΗ
+
     restaurant = relationship("Restaurant", back_populates="contact_requests")
     review = relationship("Review", back_populates="contact_requests")
+

@@ -1,10 +1,13 @@
+import os
+from ..models import Restaurant, MenuCategory, MenuItem, Review, ContactRequest
+from ..utils.mail import send_email
 from fastapi import APIRouter, Request, Form, HTTPException, Depends
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
 from ..db import get_db
-from ..models import Restaurant, MenuCategory, MenuItem, Review
+
 
 router = APIRouter()
 templates = Jinja2Templates(directory="app/templates")
@@ -138,7 +141,7 @@ def thanks_page(request: Request, slug: str, db: Session = Depends(get_db)):
             is_negative = (rating is not None and rating <= 3)  # ✅ 1-3 αστέρια
 
     contact_ok = request.query_params.get("contact") == "ok"
-
+    
     return templates.TemplateResponse(
         "public_thanks.html",
         {
@@ -172,6 +175,7 @@ def submit_contact(
     slug: str,
     rid: str = Form(""),
     name: str = Form(""),
+    email: str = Form(""),   # ✅ νέο
     phone: str = Form(""),
     message: str = Form(...),
     db: Session = Depends(get_db),
@@ -179,11 +183,40 @@ def submit_contact(
     lang = get_lang(request)
     r = get_restaurant(db, slug)
 
-    # TODO: εδώ βάλε αποθήκευση σε DB ή αποστολή email
-    # π.χ. ContactMessage table / SMTP / SendGrid κλπ.
+    review_id = int(rid) if (rid and rid.isdigit()) else None
+
+    # ✅ 1) Save στη DB
+    cr = ContactRequest(
+        restaurant_id=r.id,
+        review_id=review_id,
+        name=(name or "").strip()[:200] or None,
+        email=(email or "").strip()[:200] or None,
+        phone=(phone or "").strip()[:60] or None,
+        message=(message or "").strip()[:5000] or None,
+    )
+    db.add(cr)
+    db.commit()
+    db.refresh(cr)
+
+    # ✅ 2) Email ειδοποίηση στον admin
+    admin_email = os.getenv("ADMIN_EMAIL", "")
+    subject = f"[Contact] {r.name_el} (req #{cr.id})"
+    body = (
+        f"Restaurant: {r.name_el} (slug: {r.slug}, id: {r.id})\n"
+        f"ContactRequest ID: {cr.id}\n"
+        f"Review ID: {cr.review_id}\n"
+        f"Name: {cr.name}\n"
+        f"Email: {cr.email}\n"
+        f"Phone: {cr.phone}\n"
+        f"Time: {cr.created_at}\n\n"
+        f"Message:\n{cr.message}\n\n"
+        f"Admin link: /admin/contacts/{cr.id}\n"
+    )
+    send_email(subject, body, admin_email)
 
     qrid = f"&rid={rid}" if (rid and rid.isdigit()) else ""
     return RedirectResponse(
         url=f"/r/{slug}/thanks?lang={lang}{qrid}&contact=ok",
         status_code=303,
     )
+
