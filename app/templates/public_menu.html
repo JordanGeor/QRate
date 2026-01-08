@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="header">
+  <a class="back" href="/r/{{ r.slug }}?lang={{ lang }}">← {{ tr(lang,"Πίσω","Back") }}</a>
+  <h1>{{ tr(lang,"Μενού","Menu") }}</h1>
+</div>
+
+{% for c in categories %}
+  <div class="accordion">
+    <button class="accordion-header" type="button">
+      <span>{{ tr(lang, c.name_el, c.name_en) }}</span>
+    
+<span class="accordion-icon">
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+    <path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  </svg>
+  
+</span>
+
+    </button>
+
+    <div class="accordion-body">
+      {% for it in items_by_cat[c.id] %}
+        <div class="item">
+          <div>
+            <div class="item-name">{{ tr(lang, it.name_el, it.name_en) }}</div>
+            {% set d = tr(lang, it.description_el or "", it.description_en or "") %}
+            {% if d %}<div class="item-desc">{{ d }}</div>{% endif %}
+          </div>
+          <div class="item-price">{{ "%.2f"|format(it.price) }}€</div>
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+{% endfor %}
+
+<script>
+  document.querySelectorAll(".accordion-header").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const accordion = btn.parentElement;
+      const body = accordion.querySelector(".accordion-body");
+
+      const isOpen = accordion.classList.contains("open");
+
+      // Κλείσε όλα (αν θες μόνο ένα ανοιχτό κάθε φορά)
+      document.querySelectorAll(".accordion").forEach(a => {
+        a.classList.remove("open");
+        a.querySelector(".accordion-body").style.maxHeight = null;
+      });
+
+      if (!isOpen) {
+        accordion.classList.add("open");
+        body.style.maxHeight = body.scrollHeight + "px";
+      }
+    });
+  });
+</script>
+
+{% endblock %}

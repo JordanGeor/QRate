@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="topbar">
+  <div class="lang">
+    <a class="{{ 'active' if lang=='el' else '' }}" href="?lang=el">🇬🇷</a>
+    <a class="{{ 'active' if lang=='en' else '' }}" href="?lang=en">🇬🇧</a>
+  </div>
+</div>
+
+<div class="card center">
+  <img class="logo" src="{{ r.logo_url or 'https://placehold.co/200x200?text=LOGO' }}" alt="logo">
+  <h1>{{ tr(lang, r.name_el, r.name_en) }}</h1>
+  <p class="muted">{{ tr(lang, r.address_el or "", r.address_en or "") }}</p>
+  {% if r.phone %}<p><a class="link" href="tel:{{ r.phone }}">{{ r.phone }}</a></p>{% endif %}
+
+  <div class="btns">
+    <a class="btn" href="/r/{{ r.slug }}/menu?lang={{ lang }}">📋 {{ tr(lang,"Μενού","Menu") }}</a>
+    <a class="btn secondary" href="/r/{{ r.slug }}/review?lang={{ lang }}">⭐ {{ tr(lang,"Αξιολόγηση","Review") }}</a>
+  </div>
+</div>
+{% endblock %}

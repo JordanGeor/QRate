@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="header">
+  <a class="back" href="/r/{{ r.slug }}?lang={{ lang }}">← {{ tr(lang,"Πίσω","Back") }}</a>
+  <h1>{{ tr(lang,"Αξιολόγηση","Review") }}</h1>
+</div>
+
+<form class="card" method="post" action="/r/{{ r.slug }}/review?lang={{ lang }}">
+  <div class="q">
+    <div class="q-title">{{ tr(lang,"Βαθμολογία","Rating") }}</div>
+
+    <div class="stars" id="stars">
+      {% for n in [5,4,3,2,1] %}
+        <input required type="radio" id="rating-{{n}}" name="rating" value="{{ n }}">
+        <label for="rating-{{n}}">★</label>
+      {% endfor %}
+    </div>
+
+    <p class="muted" id="ratingLabel" style="margin-top:8px;"></p>
+  </div>
+
+  <div class="q">
+    <div class="q-title">{{ tr(lang,"Κριτική","Review") }}</div>
+    <textarea name="notes" rows="4" placeholder="{{ tr(lang,'Γράψε την κριτική σου…','Write your review…') }}"></textarea>
+  </div>
+
+  <button class="btn full" type="submit">✅ {{ tr(lang,"Υποβολή","Submit") }}</button>
+</form>
+
+<script>
+  function updateLabel() {
+    const checked = document.querySelector('input[name="rating"]:checked');
+    document.getElementById("ratingLabel").textContent = checked ? ("Selected: " + checked.value + "/5") : "";
+  }
+
+  // Κάθε click σε label → κάνει checked το σωστό radio (σίγουρα)
+  document.querySelectorAll('#stars label').forEach(lbl => {
+    lbl.addEventListener('click', () => {
+      const val = lbl.dataset.val;
+      const radio = document.getElementById("rating-" + val);
+      if (radio) {
+        radio.checked = true;
+        updateLabel();
+      }
+    });
+  });
+
+  // Και αν αλλάξει από radio click
+  document.querySelectorAll('input[name="rating"]').forEach(r => {
+    r.addEventListener('change', updateLabel);
+  });
+
+  updateLabel();
+</script>
+{% endblock %}

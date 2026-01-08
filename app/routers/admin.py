@@ -1,0 +1,200 @@
+from fastapi import APIRouter, Request, Form, Depends, HTTPException
+from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.templating import Jinja2Templates
+from sqlalchemy.orm import Session
+from ..db import get_db
+from ..models import User, Restaurant, MenuCategory, MenuItem, Review
+from ..auth import verify_password, hash_password, set_login_cookie, clear_login_cookie, get_current_user
+
+router = APIRouter(prefix="/admin")
+templates = Jinja2Templates(directory="app/templates")
+
+def ensure_owner(user: User, restaurant: Restaurant):
+    if restaurant.owner_id != user.id:
+        raise HTTPException(status_code=403, detail="Forbidden")
+
+@router.get("/login", response_class=HTMLResponse)
+def login_page(request: Request):
+    return templates.TemplateResponse("admin_login.html", {"request": request, "error": None})
+
+@router.post("/login")
+def login(
+    request: Request,
+    email: str = Form(...),
+    password: str = Form(...),
+    db: Session = Depends(get_db),
+):
+    user = db.query(User).filter(User.email == email.lower().strip()).first()
+    if not user or not verify_password(password, user.password_hash):
+        return templates.TemplateResponse("admin_login.html", {"request": request, "error": "Λάθος στοιχεία."})
+
+    resp = RedirectResponse(url="/admin", status_code=303)
+    set_login_cookie(resp, user.id)
+    return resp
+
+@router.post("/logout")
+def logout():
+    resp = RedirectResponse(url="/admin/login", status_code=303)
+    clear_login_cookie(resp)
+    return resp
+
+@router.get("", response_class=HTMLResponse)
+def dashboard(request: Request, db: Session = Depends(get_db)):
+    user = get_current_user(db, request)
+    restaurants = db.query(Restaurant).filter(Restaurant.owner_id == user.id).order_by(Restaurant.created_at.desc()).all()
+    return templates.TemplateResponse("admin_dashboard.html", {"request": request, "user": user, "restaurants": restaurants})
+
+@router.post("/restaurants/create")
+def create_restaurant(
+    request: Request,
+    slug: str = Form(...),
+    name_el: str = Form(...),
+    db: Session = Depends(get_db),
+):
+    user = get_current_user(db, request)
+    slug = slug.strip().lower()
+    if not slug or " " in slug:
+        raise HTTPException(status_code=400, detail="Slug invalid (no spaces).")
+
+    if db.query(Restaurant).filter(Restaurant.slug == slug).first():
+        raise HTTPException(status_code=400, detail="Slug already exists.")
+
+    r = Restaurant(owner_id=user.id, slug=slug, name_el=name_el.strip())
+    db.add(r)
+    db.commit()
+    return RedirectResponse(url="/admin", status_code=303)
+
+@router.get("/restaurants/{rid}", response_class=HTMLResponse)
+def edit_restaurant(request: Request, rid: int, db: Session = Depends(get_db)):
+    user = get_current_user(db, request)
+    r = db.query(Restaurant).filter(Restaurant.id == rid).first()
+    if not r:
+        raise HTTPException(status_code=404, detail="Not found")
+    ensure_owner(user, r)
+    return templates.TemplateResponse("admin_restaurant_edit.html", {"request": request, "r": r})
+
+@router.post("/restaurants/{rid}/save")
+def save_restaurant(
+    request: Request,
+    rid: int,
+    name_el: str = Form(...),
+    name_en: str = Form(""),
+    address_el: str = Form(""),
+    address_en: str = Form(""),
+    phone: str = Form(""),
+    logo_url: str = Form(""),
+    db: Session = Depends(get_db),
+    google_review_url: str = Form(""),
+    manager_contact_url: str = Form(""),
+):
+    user = get_current_user(db, request)
+    r = db.query(Restaurant).filter(Restaurant.id == rid).first()
+    if not r:
+        raise HTTPException(status_code=404, detail="Not found")
+    ensure_owner(user, r)
+
+    r.name_el = name_el.strip()
+    r.name_en = name_en.strip() or None
+    r.address_el = address_el.strip() or None
+    r.address_en = address_en.strip() or None
+    r.phone = phone.strip() or None
+    r.logo_url = logo_url.strip() or None
+    r.google_review_url = google_review_url.strip() or None
+    r.manager_contact_url = manager_contact_url.strip() or None
+
+
+    db.commit()
+    return RedirectResponse(url=f"/admin/restaurants/{rid}", status_code=303)
+
+@router.get("/restaurants/{rid}/menu", response_class=HTMLResponse)
+def admin_menu(request: Request, rid: int, db: Session = Depends(get_db)):
+    user = get_current_user(db, request)
+    r = db.query(Restaurant).filter(Restaurant.id == rid).first()
+    if not r:
+        raise HTTPException(status_code=404)
+    ensure_owner(user, r)
+
+    categories = db.query(MenuCategory).filter(MenuCategory.restaurant_id == r.id).order_by(MenuCategory.sort_order.asc()).all()
+    items = db.query(MenuItem).filter(MenuItem.restaurant_id == r.id).order_by(MenuItem.category_id.asc(), MenuItem.sort_order.asc()).all()
+
+    return templates.TemplateResponse("admin_menu.html", {"request": request, "r": r, "categories": categories, "items": items})
+
+@router.post("/restaurants/{rid}/categories/create")
+def create_category(
+    request: Request,
+    rid: int,
+    name_el: str = Form(...),
+    name_en: str = Form(""),
+    sort_order: int = Form(0),
+    db: Session = Depends(get_db),
+):
+    user = get_current_user(db, request)
+    r = db.query(Restaurant).filter(Restaurant.id == rid).first()
+    if not r:
+        raise HTTPException(status_code=404)
+    ensure_owner(user, r)
+
+    c = MenuCategory(
+        restaurant_id=r.id,
+        name_el=name_el.strip(),
+        name_en=name_en.strip() or None,
+        sort_order=sort_order,
+    )
+    db.add(c)
+    db.commit()
+    return RedirectResponse(url=f"/admin/restaurants/{rid}/menu", status_code=303)
+
+@router.post("/restaurants/{rid}/items/create")
+def create_item(
+    request: Request,
+    rid: int,
+    category_id: int = Form(...),
+    name_el: str = Form(...),
+    name_en: str = Form(""),
+    description_el: str = Form(""),
+    description_en: str = Form(""),
+    price: float = Form(0.0),
+    sort_order: int = Form(0),
+    db: Session = Depends(get_db),
+):
+    user = get_current_user(db, request)
+    r = db.query(Restaurant).filter(Restaurant.id == rid).first()
+    if not r:
+        raise HTTPException(status_code=404)
+    ensure_owner(user, r)
+
+    it = MenuItem(
+        restaurant_id=r.id,
+        category_id=category_id,
+        name_el=name_el.strip(),
+        name_en=name_en.strip() or None,
+        description_el=description_el.strip() or None,
+        description_en=description_en.strip() or None,
+        price=float(price),
+        sort_order=sort_order,
+    )
+    db.add(it)
+    db.commit()
+    return RedirectResponse(url=f"/admin/restaurants/{rid}/menu", status_code=303)
+
+@router.get("/restaurants/{rid}/reviews", response_class=HTMLResponse)
+def admin_reviews(request: Request, rid: int, db: Session = Depends(get_db)):
+    user = get_current_user(db, request)
+    r = db.query(Restaurant).filter(Restaurant.id == rid).first()
+    if not r:
+        raise HTTPException(status_code=404)
+    ensure_owner(user, r)
+
+    reviews = db.query(Review).filter(Review.restaurant_id == r.id).order_by(Review.created_at.desc()).limit(200).all()
+    return templates.TemplateResponse("admin_reviews.html", {"request": request, "r": r, "reviews": reviews})
+
+# (ΜΙΑ ΦΟΡΑ) endpoint για να φτιάξεις τον πρώτο admin user
+@router.post("/bootstrap")
+def bootstrap_admin(email: str = Form(...), password: str = Form(...), db: Session = Depends(get_db)):
+    email = email.lower().strip()
+    if db.query(User).filter(User.email == email).first():
+        raise HTTPException(status_code=400, detail="User exists")
+    u = User(email=email, password_hash=hash_password(password))
+    db.add(u)
+    db.commit()
+    return {"ok": True, "email": email}

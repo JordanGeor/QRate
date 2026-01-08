@@ -1,0 +1,265 @@
+:root {
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial;
+}
+
+body {
+  margin: 0;
+  background: #f3f4f6;
+  color: #111827;
+}
+
+.container {
+  max-width: 520px;
+  margin: 0 auto;
+  padding: 14px;
+}
+
+/* Top bar / language */
+.topbar {
+  position: sticky;
+  top: 0;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  padding: 10px;
+  margin-bottom: 12px;
+}
+
+.lang {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+}
+
+.lang a {
+  text-decoration: none;
+  padding: 6px 10px;
+  border-radius: 10px;
+  border: 1px solid #e5e7eb;
+}
+
+.lang a.active {
+  background: #111827;
+  color: #fff;
+  border-color: #111827;
+}
+
+/* Cards */
+.card {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 16px;
+  padding: 16px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  margin-bottom: 12px;
+}
+
+.center {
+  text-align: center;
+}
+
+.logo {
+  width: 120px;
+  height: 120px;
+  border-radius: 999px;
+  object-fit: cover;
+  border: 1px solid #e5e7eb;
+}
+
+.muted {
+  color: #6b7280;
+}
+
+/* Buttons */
+.btns {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.btn {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  text-decoration: none;
+  background: #111827;
+  color: #fff;
+  border: 1px solid #111827;
+  font-weight: 650;
+}
+
+.btn.secondary {
+  background: #fff;
+  color: #111827;
+  border-color: #d1d5db;
+}
+
+.btn.full {
+  width: 100%;
+}
+
+/* Header */
+.header {
+  display: grid;
+  gap: 8px;
+  margin: 4px 0 12px;
+}
+
+.back {
+  text-decoration: none;
+  color: #2563eb;
+}
+
+/* Menu items */
+.item {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+  padding: 10px 0;
+  border-top: 1px solid #f3f4f6;
+}
+
+.item-name {
+  font-weight: 750;
+}
+
+.item-desc {
+  color: #6b7280;
+  font-size: 14px;
+  margin-top: 2px;
+}
+
+.item-price {
+  font-weight: 850;
+}
+
+/* Forms */
+label {
+  display: block;
+  font-weight: 650;
+  margin-top: 10px;
+  margin-bottom: 6px;
+}
+
+input,
+select,
+textarea {
+  width: 100%;
+  padding: 10px;
+  border-radius: 12px;
+  border: 1px solid #d1d5db;
+  box-sizing: border-box;
+}
+
+textarea {
+  resize: vertical;
+}
+
+/* Questions */
+.q {
+  padding: 12px 0;
+  border-top: 1px solid #f3f4f6;
+}
+
+.q:first-of-type {
+  border-top: none;
+}
+
+.q-title {
+  font-weight: 850;
+  margin-bottom: 8px;
+  letter-spacing: 0.2px;
+}
+
+/* ⭐ STAR RATING (FIXED & CORRECT) */
+.stars {
+  display: inline-flex;
+  gap: 6px;
+  flex-direction: row-reverse; /* κρατάμε το classic hover */
+}
+
+.stars input {
+  display: none;
+}
+
+.stars label {
+  font-size: 28px;
+  cursor: pointer;
+  color: #d1d5db;
+  line-height: 1;
+}
+
+/* hover + checked behavior */
+.stars input:checked ~ label,
+.stars label:hover,
+.stars label:hover ~ label {
+  color: #f59e0b;
+}
+
+/* Misc */
+.error {
+  color: #b91c1c;
+}
+
+.pill {
+  padding: 8px 10px;
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
+  margin: 6px 0;
+}
+
+.grid2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+/* Accordion */
+.accordion {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 16px;
+  margin-bottom: 12px;
+  overflow: hidden;
+}
+
+.accordion-header {
+  width: 100%;
+  background: #ffffff;
+  border: none;
+  padding: 16px;
+  font-size: 18px;
+  font-weight: 800;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+}
+
+.accordion-header:hover {
+  background: #f9fafb;
+}
+
+.accordion-icon {
+  display: flex;
+  transition: transform 0.25s ease;
+  color: #6b7280;
+}
+
+.accordion.open .accordion-icon {
+  transform: rotate(180deg);
+}
+
+.accordion-body {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.3s ease;
+  padding: 0 16px;
+}
+
+.accordion.open .accordion-body {
+  padding-bottom: 12px;
+}

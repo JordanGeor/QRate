@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card">
+  <div style="display:flex; justify-content:space-between; align-items:center; gap:10px;">
+    <h1>Dashboard</h1>
+    <form method="post" action="/admin/logout">
+      <button class="btn secondary" type="submit">Logout</button>
+    </form>
+  </div>
+
+  <h2>Νέο Μαγαζί</h2>
+  <form method="post" action="/admin/restaurants/create">
+    <label>Slug (για QR URL)</label>
+    <input name="slug" placeholder="π.χ. makelos" required>
+    <label>Όνομα (EL)</label>
+    <input name="name_el" required>
+    <button class="btn" type="submit">Create</button>
+  </form>
+</div>
+
+{% for r in restaurants %}
+<div class="card">
+  <h2>{{ r.name_el }} <span class="muted">(/r/{{ r.slug }})</span></h2>
+  <div class="btns">
+    <a class="btn secondary" href="/admin/restaurants/{{ r.id }}">Στοιχεία</a>
+    <a class="btn secondary" href="/admin/restaurants/{{ r.id }}/menu">Μενού</a>
+    <a class="btn secondary" href="/admin/restaurants/{{ r.id }}/reviews">Αξιολογήσεις</a>
+    <a class="btn" href="/r/{{ r.slug }}" target="_blank">Public</a>
+  </div>
+</div>
+{% endfor %}
+{% endblock %}

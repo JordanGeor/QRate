@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="header">
+  <a class="back" href="/admin">← Dashboard</a>
+  <h1>Στοιχεία: {{ r.name_el }}</h1>
+</div>
+
+<div class="card">
+  <form method="post" action="/admin/restaurants/{{ r.id }}/save">
+    <label>Όνομα (EL)</label>
+    <input name="name_el" value="{{ r.name_el }}" required>
+
+    <label>Όνομα (EN)</label>
+    <input name="name_en" value="{{ r.name_en or '' }}">
+
+    <label>Διεύθυνση (EL)</label>
+    <input name="address_el" value="{{ r.address_el or '' }}">
+
+    <label>Διεύθυνση (EN)</label>
+    <input name="address_en" value="{{ r.address_en or '' }}">
+
+    <label>Τηλέφωνο</label>
+    <input name="phone" value="{{ r.phone or '' }}">
+
+    <label>Logo URL</label>
+    <input name="logo_url" value="{{ r.logo_url or '' }}">
+
+    <label>Google Review URL</label>
+<input name="google_review_url" value="{{ r.google_review_url or '' }}">
+
+<label>Manager Contact URL (WhatsApp/φόρμα)</label>
+<input name="manager_contact_url" value="{{ r.manager_contact_url or '' }}">
+
+
+    <button class="btn full" type="submit">Save</button>
+  </form>
+</div>
+{% endblock %}
