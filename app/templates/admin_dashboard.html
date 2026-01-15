@@ -25,9 +25,22 @@
     <a class="btn secondary" href="/admin/restaurants/{{ r.id }}">Στοιχεία</a>
     <a class="btn secondary" href="/admin/restaurants/{{ r.id }}/menu">Μενού</a>
     <a class="btn secondary" href="/admin/restaurants/{{ r.id }}/reviews">Αξιολογήσεις</a>
-    <a class="btn secondary" href="/admin/restaurants/{{ r.id }}/contacts">Contact Requests</a>
+    <a class="btn secondary nav-item" href="/admin/restaurants/{{ r.id }}/contacts">
+      Contact Requests
+      {% set c = (counts_by_restaurant or {}).get(r.id, 0) %}
+      {% if c > 0 %}
+        <span class="badge">{{ c }}</span>
+      {% endif %}
+    </a>
     <a class="btn" href="/r/{{ r.slug }}" target="_blank">Public</a>
   </div>
 </div>
 {% endfor %}
+
+<script>
+  setInterval(function () {
+    window.location.reload();
+  }, 5000); // 5000ms = 5 δευτερόλεπτα
+</script>
+
 {% endblock %}

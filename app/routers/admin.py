@@ -1,3 +1,4 @@
+from sqlalchemy import func
 from fastapi import APIRouter, Request, Form, Depends, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
@@ -41,8 +42,34 @@ def logout():
 @router.get("", response_class=HTMLResponse)
 def dashboard(request: Request, db: Session = Depends(get_db)):
     user = get_current_user(db, request)
-    restaurants = db.query(Restaurant).filter(Restaurant.owner_id == user.id).order_by(Restaurant.created_at.desc()).all()
-    return templates.TemplateResponse("admin_dashboard.html", {"request": request, "user": user, "restaurants": restaurants})
+
+    restaurants = (
+        db.query(Restaurant)
+        .filter(Restaurant.owner_id == user.id)
+        .order_by(Restaurant.created_at.desc())
+        .all()
+    )
+
+    rows = (
+        db.query(ContactRequest.restaurant_id, func.count(ContactRequest.id))
+        .join(Restaurant, Restaurant.id == ContactRequest.restaurant_id)
+        .filter(Restaurant.owner_id == user.id)
+        .filter(ContactRequest.is_read == False)
+        .group_by(ContactRequest.restaurant_id)
+        .all()
+    )
+
+    counts_by_restaurant = {rid: cnt for rid, cnt in rows}
+
+    return templates.TemplateResponse(
+        "admin_dashboard.html",
+        {
+            "request": request,
+            "user": user,
+            "restaurants": restaurants,
+            "counts_by_restaurant": counts_by_restaurant,  # ✅ ΠΡΕΠΕΙ ΝΑ ΣΤΑΛΕΙ
+        },
+    )
 
 @router.post("/restaurants/create")
 def create_restaurant(
@@ -207,6 +234,13 @@ def admin_contacts(request: Request, rid: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404)
     ensure_owner(user, r)
 
+    db.query(ContactRequest)\
+    .filter(ContactRequest.restaurant_id == r.id)\
+    .filter(ContactRequest.is_read == False)\
+    .update({ContactRequest.is_read: True}, synchronize_session=False)
+
+    db.commit()
+    
     contacts = (
         db.query(ContactRequest)
         .filter(ContactRequest.restaurant_id == r.id)

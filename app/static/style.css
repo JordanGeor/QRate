@@ -354,3 +354,29 @@ textarea{ resize: vertical; }
   padding: 8px 10px;
   border-radius: 12px;
 }
+
+/* request counter */
+.nav-item{
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.badge{
+  min-width: 18px;
+  height: 18px;
+  padding: 2 7px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  font-size: 12px;
+  font-weight: 800;
+  margin-left: 6px;
+  line-height: 1;
+
+  background: #dc2626;
+  color: #ffffff;
+  border: 2px solid var(--card);
+}

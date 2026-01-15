@@ -111,7 +111,6 @@ class Review(Base):
         "ContactRequest", back_populates="review", cascade="all, delete-orphan"
     )
 
-
 # 🆕 ΝΕΟ MODEL — Επικοινωνία πελάτη με manager
 class ContactRequest(Base):
     __tablename__ = "contact_requests"
@@ -127,8 +126,8 @@ class ContactRequest(Base):
 
     created_at = Column(DateTime, server_default=func.now(), nullable=False)
 
-    is_handled = Column(Boolean, default=False, nullable=False, index=True)  # ✅ ΠΡΟΣΘΗΚΗ
+    is_read = Column(Boolean, default=False, nullable=False, index=True) 
+    is_handled = Column(Boolean, default=False, nullable=False, index=True)
 
     restaurant = relationship("Restaurant", back_populates="contact_requests")
     review = relationship("Review", back_populates="contact_requests")
-
