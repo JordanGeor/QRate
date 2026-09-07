@@ -132,7 +132,3 @@ Additional security improvements are planned as the project evolves.
 QRate is currently under active development.
 
 Planned improvements include enhanced security, analytics, structured feedback, QR source tracking, reporting, and additional SaaS-oriented functionality.
-
-## Author
-
-Developed by JordanGeor.
