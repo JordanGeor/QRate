@@ -1,46 +1,104 @@
 {% extends "base.html" %}
 {% block content %}
+
 <div class="card">
   <div style="display:flex; justify-content:space-between; align-items:center; gap:10px;">
     <h1>Dashboard</h1>
+
     <form method="post" action="/admin/logout">
-      <button class="btn secondary" type="submit">Logout</button>
+      <button class="btn secondary" type="submit">
+        Logout
+      </button>
     </form>
   </div>
 
-  <h2>Νέο Μαγαζί</h2>
-  <form method="post" action="/admin/restaurants/create">
-    <label>Slug (για QR URL)</label>
-    <input name="slug" placeholder="π.χ. makelos" required>
-    <label>Όνομα (EL)</label>
-    <input name="name_el" required>
-    <button class="btn" type="submit">Create</button>
-  </form>
+  {% if user.role == "superadmin" %}
+    <div class="btns" style="margin-top:12px;">
+      <a class="btn" href="/admin/users/create">
+        Νέος Πελάτης / Κατάστημα
+      </a>
+    </div>
+  {% endif %}
 </div>
 
 {% for r in restaurants %}
 <div class="card">
-  <h2>{{ r.name_el }} <span class="muted">(/r/{{ r.slug }})</span></h2>
+
+  <h2>
+    {{ r.name_el }}
+    <span class="muted">
+      (/r/{{ r.slug }})
+    </span>
+  </h2>
+
+  {% if user.role == "superadmin" %}
+    <p class="muted">
+      Owner ID:
+      {{ r.owner_id or "Δεν έχει οριστεί" }}
+    </p>
+  {% endif %}
+
   <div class="btns">
-    <a class="btn secondary" href="/admin/restaurants/{{ r.id }}">Στοιχεία</a>
-    <a class="btn secondary" href="/admin/restaurants/{{ r.id }}/menu">Μενού</a>
-    <a class="btn secondary" href="/admin/restaurants/{{ r.id }}/reviews">Αξιολογήσεις</a>
-    <a class="btn secondary nav-item" href="/admin/restaurants/{{ r.id }}/contacts">
+
+    <a class="btn secondary"
+       href="/admin/restaurants/{{ r.id }}">
+      Στοιχεία
+    </a>
+
+    <a class="btn secondary"
+       href="/admin/restaurants/{{ r.id }}/menu">
+      Μενού
+    </a>
+
+    <a class="btn secondary"
+       href="/admin/restaurants/{{ r.id }}/reviews">
+      Αξιολογήσεις
+    </a>
+
+    <a class="btn secondary nav-item"
+       href="/admin/restaurants/{{ r.id }}/contacts">
+
       Contact Requests
+
       {% set c = (counts_by_restaurant or {}).get(r.id, 0) %}
+
       {% if c > 0 %}
-        <span class="badge">{{ c }}</span>
+        <span class="badge">
+          {{ c }}
+        </span>
       {% endif %}
     </a>
-    <a class="btn" href="/r/{{ r.slug }}" target="_blank">Public</a>
+
+    <a class="btn"
+       href="/r/{{ r.slug }}"
+       target="_blank">
+      Public
+    </a>
+
   </div>
+
+  {% if user.role == "superadmin" %}
+    <form method="post"
+          action="/admin/restaurants/{{ r.id }}/delete"
+          onsubmit="return confirm('Σίγουρα θέλεις να διαγράψεις το κατάστημα {{ r.name_el }};');"
+          style="margin-top:14px;">
+
+      <button class="btn secondary" type="submit">
+        Διαγραφή Καταστήματος
+      </button>
+
+    </form>
+  {% endif %}
+
 </div>
 {% endfor %}
 
-<script>
-  setInterval(function () {
-    window.location.reload();
-  }, 5000); // 5000ms = 5 δευτερόλεπτα
-</script>
+{% if not restaurants %}
+<div class="card">
+  <p class="muted">
+    Δεν υπάρχουν ακόμα καταστήματα.
+  </p>
+</div>
+{% endif %}
 
 {% endblock %}

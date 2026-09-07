@@ -38,8 +38,13 @@ def info_page(request: Request, slug: str, db: Session = Depends(get_db)):
     lang = get_lang(request)
     r = get_restaurant(db, slug)
     return templates.TemplateResponse(
-        "public_info.html",
-        {"request": request, "r": r, "lang": lang, "tr": tr},
+        request=request,
+        name="public_info.html",
+        context={
+            "r": r,
+            "lang": lang,
+            "tr": tr,
+        },
     )
 
 
@@ -65,9 +70,9 @@ def menu_page(request: Request, slug: str, db: Session = Depends(get_db)):
         )
 
     return templates.TemplateResponse(
-        "public_menu.html",
-        {
-            "request": request,
+        request=request,
+        name="public_menu.html",
+        context={
             "r": r,
             "lang": lang,
             "tr": tr,
@@ -82,10 +87,14 @@ def review_page(request: Request, slug: str, db: Session = Depends(get_db)):
     lang = get_lang(request)
     r = get_restaurant(db, slug)
     return templates.TemplateResponse(
-        "public_review.html",
-        {"request": request, "r": r, "lang": lang, "tr": tr},
+        request=request,
+        name="public_review.html",
+        context={
+            "r": r,
+            "lang": lang,
+            "tr": tr,
+        },
     )
-
 
 @router.post("/r/{slug}/review")
 def submit_review(
@@ -143,9 +152,9 @@ def thanks_page(request: Request, slug: str, db: Session = Depends(get_db)):
     contact_ok = request.query_params.get("contact") == "ok"
     
     return templates.TemplateResponse(
-        "public_thanks.html",
-        {
-            "request": request,
+        request=request,
+        name="public_thanks.html",
+        context={
             "r": r,
             "lang": lang,
             "tr": tr,
@@ -157,15 +166,20 @@ def thanks_page(request: Request, slug: str, db: Session = Depends(get_db)):
         },
     )
 
-
 @router.get("/r/{slug}/contact", response_class=HTMLResponse)
 def contact_page(request: Request, slug: str, db: Session = Depends(get_db)):
     lang = get_lang(request)
     r = get_restaurant(db, slug)
     rid = request.query_params.get("rid", "")
     return templates.TemplateResponse(
-        "public_contact.html",
-        {"request": request, "r": r, "lang": lang, "tr": tr, "rid": rid},
+        request=request,
+        name="public_contact.html",
+        context={
+            "r": r,
+            "lang": lang,
+            "tr": tr,
+            "rid": rid,
+        },
     )
 
 
