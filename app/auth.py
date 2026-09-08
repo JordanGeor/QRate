@@ -3,6 +3,7 @@ import base64
 import hashlib
 import hmac
 import time
+import secrets
 
 from dotenv import load_dotenv
 from fastapi import Request, HTTPException
@@ -14,6 +15,7 @@ from .models import User
 load_dotenv()
 
 COOKIE_NAME = "QRate_uid"
+CSRF_COOKIE_NAME = "QRate_csrf"
 
 SESSION_SECRET = os.getenv("SESSION_SECRET")
 SESSION_MAX_AGE = 60 * 60 * 8
@@ -156,3 +158,32 @@ def get_current_user(db: Session, request: Request) -> User:
         raise HTTPException(status_code=401, detail="Invalid session")
 
     return user
+
+def get_csrf_token(request: Request) -> str:
+    token = request.cookies.get(CSRF_COOKIE_NAME)
+
+    if token:
+        return token
+
+    return secrets.token_urlsafe(32)
+
+
+def set_csrf_cookie(response, token: str):
+    response.set_cookie(
+        key=CSRF_COOKIE_NAME,
+        value=token,
+        httponly=True,
+        samesite="strict",
+        secure=COOKIE_SECURE,
+        max_age=SESSION_MAX_AGE,
+    )
+
+
+def verify_csrf_token(request: Request, form_token: str):
+    cookie_token = request.cookies.get(CSRF_COOKIE_NAME)
+
+    if not cookie_token or not form_token:
+        raise HTTPException(status_code=403, detail="Invalid CSRF token")
+
+    if not hmac.compare_digest(cookie_token, form_token):
+        raise HTTPException(status_code=403, detail="Invalid CSRF token")

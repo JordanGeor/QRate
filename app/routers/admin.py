@@ -12,6 +12,9 @@ from ..auth import (
     set_login_cookie,
     clear_login_cookie,
     get_current_user,
+    get_csrf_token,
+    set_csrf_cookie,
+    verify_csrf_token,
 )
 
 router = APIRouter(prefix="/admin")
@@ -43,13 +46,20 @@ def clean_slug(slug: str):
 
 @router.get("/login", response_class=HTMLResponse)
 def login_page(request: Request):
-    return templates.TemplateResponse(
+    csrf_token = get_csrf_token(request)
+
+    response = templates.TemplateResponse(
         request=request,
         name="admin_login.html",
         context={
             "error": None,
+            "csrf_token": csrf_token,
         },
     )
+
+    set_csrf_cookie(response, csrf_token)
+
+    return response
 
 
 @router.post("/login")
@@ -57,8 +67,11 @@ def login(
     request: Request,
     username: str = Form(...),
     password: str = Form(...),
+    csrf_token: str = Form(...),
     db: Session = Depends(get_db),
 ):
+    verify_csrf_token(request, csrf_token)
+
     user = db.query(User).filter(
         User.username == username.lower().strip()
     ).first()
@@ -69,6 +82,7 @@ def login(
             name="admin_login.html",
             context={
                 "error": "Λάθος στοιχεία.",
+                "csrf_token": csrf_token,
             },
         )
     if not user.is_active:
@@ -77,6 +91,7 @@ def login(
             name="admin_login.html",
             context={
                 "error": "Ο λογαριασμός δεν έχει ενεργοποιηθεί ακόμα.",
+                "csrf_token": csrf_token,
             },
         )
 
@@ -87,7 +102,12 @@ def login(
 
 
 @router.post("/logout")
-def logout():
+def logout(
+    request: Request,
+    csrf_token: str = Form(...),
+):
+    verify_csrf_token(request, csrf_token)
+
     resp = RedirectResponse(url="/admin/login", status_code=303)
     clear_login_cookie(resp)
     return resp
@@ -96,6 +116,7 @@ def logout():
 @router.get("", response_class=HTMLResponse)
 def dashboard(request: Request, db: Session = Depends(get_db)):
     user = get_current_user(db, request)
+    csrf_token = get_csrf_token(request)
 
     if user.role == "superadmin":
         restaurants = (
@@ -148,41 +169,9 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
             "restaurants": restaurants,
             "counts_by_restaurant": counts_by_restaurant,
             "pending_users": pending_users,
+            "csrf_token": csrf_token,
         },
     )
-
-
-@router.post("/restaurants/create")
-def create_restaurant(
-    request: Request,
-    slug: str = Form(...),
-    name_el: str = Form(...),
-    db: Session = Depends(get_db),
-):
-    user = get_current_user(db, request)
-    ensure_superadmin(user)
-
-    slug = clean_slug(slug)
-
-    if not slug:
-        raise HTTPException(status_code=400, detail="Slug invalid.")
-
-    if " " in slug:
-        raise HTTPException(status_code=400, detail="Slug invalid (no spaces).")
-
-    if db.query(Restaurant).filter(Restaurant.slug == slug).first():
-        raise HTTPException(status_code=400, detail="Slug already exists.")
-
-    r = Restaurant(
-        owner_id=None,
-        slug=slug,
-        name_el=name_el.strip(),
-    )
-
-    db.add(r)
-    db.commit()
-
-    return RedirectResponse(url="/admin", status_code=303)
 
 
 @router.get("/users/create", response_class=HTMLResponse)
@@ -190,13 +179,20 @@ def create_user_page(request: Request, db: Session = Depends(get_db)):
     user = get_current_user(db, request)
     ensure_superadmin(user)
 
-    return templates.TemplateResponse(
+    csrf_token = get_csrf_token(request)
+
+    response = templates.TemplateResponse(
         request=request,
         name="admin_user_create.html",
         context={
             "error": None,
+            "csrf_token": csrf_token,
         },
     )
+
+    set_csrf_cookie(response, csrf_token)
+
+    return response
 
 
 @router.post("/users/create")
@@ -206,9 +202,11 @@ def create_user(
     password: str = Form(...),
     slug: str = Form(...),
     name_el: str = Form(...),
+    csrf_token: str = Form(...),
     db: Session = Depends(get_db),
 ):
     admin = get_current_user(db, request)
+    verify_csrf_token(request, csrf_token)
     ensure_superadmin(admin)
 
     username = username.lower().strip()
@@ -221,6 +219,8 @@ def create_user(
             name="admin_user_create.html",
             context={
                 "error": "Το slug είναι υποχρεωτικό.",
+                "csrf_token": csrf_token,
+
             },
         )
 
@@ -230,6 +230,7 @@ def create_user(
             name="admin_user_create.html",
             context={
                 "error": "Υπάρχει ήδη χρήστης με αυτό το email.",
+                "csrf_token": csrf_token,
             },
         )
 
@@ -239,6 +240,7 @@ def create_user(
         name="admin_user_create.html",
         context={
             "error": "Υπάρχει ήδη κατάστημα με αυτό το slug.",
+            "csrf_token": csrf_token,
         },
     )
 
@@ -268,9 +270,11 @@ def create_user(
 def delete_restaurant(
     request: Request,
     rid: int,
+    csrf_token: str = Form(...),
     db: Session = Depends(get_db),
 ):
     user = get_current_user(db, request)
+    verify_csrf_token(request, csrf_token)
     ensure_superadmin(user)
 
     r = db.query(Restaurant).filter(Restaurant.id == rid).first()
@@ -279,25 +283,6 @@ def delete_restaurant(
         raise HTTPException(status_code=404, detail="Restaurant not found")
 
     db.delete(r)
-    db.commit()
-
-    return RedirectResponse(url="/admin", status_code=303)
-
-@router.post("/users/{uid}/approve")
-def approve_user(
-    request: Request,
-    uid: int,
-    db: Session = Depends(get_db),
-):
-    admin = get_current_user(db, request)
-    ensure_superadmin(admin)
-
-    user = db.query(User).filter(User.id == uid).first()
-
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-
-    user.is_active = True
     db.commit()
 
     return RedirectResponse(url="/admin", status_code=303)
@@ -313,12 +298,14 @@ def edit_restaurant(request: Request, rid: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Not found")
 
     ensure_owner_or_superadmin(user, r)
+    csrf_token = get_csrf_token(request)
 
     return templates.TemplateResponse(
         request=request,
         name="admin_restaurant_edit.html",
         context={
             "r": r,
+            "csrf_token": csrf_token,
         },
     )
 
@@ -335,9 +322,11 @@ def save_restaurant(
     logo_url: str = Form(""),
     google_review_url: str = Form(""),
     manager_contact_url: str = Form(""),
+    csrf_token: str = Form(...),
     db: Session = Depends(get_db),
 ):
     user = get_current_user(db, request)
+    verify_csrf_token(request, csrf_token)
 
     r = db.query(Restaurant).filter(Restaurant.id == rid).first()
 
@@ -370,6 +359,7 @@ def admin_menu(request: Request, rid: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404)
 
     ensure_owner_or_superadmin(user, r)
+    csrf_token = get_csrf_token(request)
 
     categories = (
         db.query(MenuCategory)
@@ -392,6 +382,7 @@ def admin_menu(request: Request, rid: int, db: Session = Depends(get_db)):
             "r": r,
             "categories": categories,
             "items": items,
+            "csrf_token": csrf_token,
         },
     )
 
@@ -402,10 +393,11 @@ def create_category(
     rid: int,
     name_el: str = Form(...),
     name_en: str = Form(""),
-    sort_order: int = Form(0),
+    csrf_token: str = Form(...),
     db: Session = Depends(get_db),
 ):
     user = get_current_user(db, request)
+    verify_csrf_token(request, csrf_token)
 
     r = db.query(Restaurant).filter(Restaurant.id == rid).first()
 
@@ -414,11 +406,24 @@ def create_category(
 
     ensure_owner_or_superadmin(user, r)
 
+    last_category = (
+        db.query(MenuCategory)
+        .filter(MenuCategory.restaurant_id == r.id)
+        .order_by(MenuCategory.sort_order.desc())
+        .first()
+    )
+
+    next_sort_order = (
+        last_category.sort_order + 1
+        if last_category
+        else 0
+    )
+
     c = MenuCategory(
         restaurant_id=r.id,
         name_el=name_el.strip(),
         name_en=name_en.strip() or None,
-        sort_order=sort_order,
+        sort_order=next_sort_order,
     )
 
     db.add(c)
@@ -426,30 +431,214 @@ def create_category(
 
     return RedirectResponse(url=f"/admin/restaurants/{rid}/menu", status_code=303)
 
+@router.post("/restaurants/{rid}/categories/{category_id}/move")
+def move_category(
+    request: Request,
+    rid: int,
+    category_id: int,
+    direction: str = Form(...),
+    csrf_token: str = Form(...),
+    db: Session = Depends(get_db),
+):
+    user = get_current_user(db, request)
+    verify_csrf_token(request, csrf_token)
 
-    @router.post("/restaurants/{rid}/items/create")
-    def create_item(
-        request: Request,
-        rid: int,
-        category_id: int = Form(...),
-        name_el: str = Form(...),
-        name_en: str = Form(""),
-        description_el: str = Form(""),
-        description_en: str = Form(""),
-        price: float = Form(0.0),
-        sort_order: int = Form(0),
-        db: Session = Depends(get_db),
-    ):
-        user = get_current_user(db, request)
+    r = db.query(Restaurant).filter(Restaurant.id == rid).first()
 
-        r = db.query(Restaurant).filter(Restaurant.id == rid).first()
+    if not r:
+        raise HTTPException(status_code=404)
 
-        if not r:
-            raise HTTPException(status_code=404)
+    ensure_owner_or_superadmin(user, r)
 
-        ensure_owner_or_superadmin(user, r)
+    category = (
+        db.query(MenuCategory)
+        .filter(
+            MenuCategory.id == category_id,
+            MenuCategory.restaurant_id == r.id,
+        )
+        .first()
+    )
 
-        category = (
+    if not category:
+        raise HTTPException(status_code=404)
+
+    if direction not in ("up", "down"):
+        raise HTTPException(status_code=400, detail="Invalid direction")
+
+    categories = (
+        db.query(MenuCategory)
+        .filter(MenuCategory.restaurant_id == r.id)
+        .order_by(
+            MenuCategory.sort_order.asc(),
+            MenuCategory.id.asc(),
+        )
+        .all()
+    )
+
+    current_index = next(
+        (i for i, c in enumerate(categories) if c.id == category.id),
+        None,
+    )
+
+    if current_index is None:
+        raise HTTPException(status_code=404)
+
+    target_index = (
+        current_index - 1
+        if direction == "up"
+        else current_index + 1
+    )
+
+    if 0 <= target_index < len(categories):
+        categories[current_index], categories[target_index] = (
+            categories[target_index],
+            categories[current_index],
+        )
+
+        for index, c in enumerate(categories):
+            c.sort_order = index
+
+        db.commit()
+
+    return RedirectResponse(
+        url=f"/admin/restaurants/{rid}/menu",
+        status_code=303,
+    )
+
+@router.post("/restaurants/{rid}/categories/{category_id}/delete")
+def delete_category(
+    request: Request,
+    rid: int,
+    category_id: int,
+    csrf_token: str = Form(...),
+    db: Session = Depends(get_db),
+):
+    user = get_current_user(db, request)
+    verify_csrf_token(request, csrf_token)
+
+    r = db.query(Restaurant).filter(Restaurant.id == rid).first()
+
+    if not r:
+        raise HTTPException(status_code=404)
+
+    ensure_owner_or_superadmin(user, r)
+
+    category = (
+        db.query(MenuCategory)
+        .filter(
+            MenuCategory.id == category_id,
+            MenuCategory.restaurant_id == r.id,
+        )
+        .first()
+    )
+
+    if not category:
+        raise HTTPException(status_code=404)
+
+    items_count = (
+        db.query(MenuItem)
+        .filter(
+            MenuItem.restaurant_id == r.id,
+            MenuItem.category_id == category.id,
+        )
+        .count()
+    )
+
+    if items_count > 0:
+        raise HTTPException(
+            status_code=400,
+            detail="Cannot delete a category that contains items",
+        )
+
+    db.delete(category)
+    db.commit()
+
+    remaining_categories = (
+        db.query(MenuCategory)
+        .filter(MenuCategory.restaurant_id == r.id)
+        .order_by(
+            MenuCategory.sort_order.asc(),
+            MenuCategory.id.asc(),
+        )
+        .all()
+    )
+
+    for index, c in enumerate(remaining_categories):
+        c.sort_order = index
+
+    db.commit()
+
+    return RedirectResponse(
+        url=f"/admin/restaurants/{rid}/menu",
+        status_code=303,
+    )
+
+@router.post("/restaurants/{rid}/categories/{category_id}/edit")
+def edit_category(
+    request: Request,
+    rid: int,
+    category_id: int,
+    name_el: str = Form(...),
+    name_en: str = Form(""),
+    csrf_token: str = Form(...),
+    db: Session = Depends(get_db),
+):
+    user = get_current_user(db, request)
+    verify_csrf_token(request, csrf_token)
+
+    r = db.query(Restaurant).filter(Restaurant.id == rid).first()
+
+    if not r:
+        raise HTTPException(status_code=404)
+
+    ensure_owner_or_superadmin(user, r)
+
+    category = (
+        db.query(MenuCategory)
+        .filter(
+            MenuCategory.id == category_id,
+            MenuCategory.restaurant_id == r.id,
+        )
+        .first()
+    )
+
+    if not category:
+        raise HTTPException(status_code=404)
+
+    category.name_el = name_el.strip()
+    category.name_en = name_en.strip()
+
+    db.commit()
+
+    return RedirectResponse(
+        url=f"/admin/restaurants/{rid}/menu",
+        status_code=303,
+    )
+
+@router.post("/restaurants/{rid}/items/create")
+def create_item(
+    request: Request,
+    rid: int,
+    category_id: int = Form(...),
+    name_el: str = Form(...),
+    name_en: str = Form(""),
+    description_el: str = Form(""),
+    description_en: str = Form(""),
+    price: float = Form(0.0),
+    csrf_token: str = Form(...),
+    db: Session = Depends(get_db),
+):
+    user = get_current_user(db, request)
+    verify_csrf_token(request, csrf_token)
+
+    r = db.query(Restaurant).filter(Restaurant.id == rid).first()
+
+    if not r:
+        raise HTTPException(status_code=404)
+
+    ensure_owner_or_superadmin(user, r)
+
+    category = (
         db.query(MenuCategory)
         .filter(
             MenuCategory.id == category_id,
@@ -461,6 +650,22 @@ def create_category(
     if not category:
         raise HTTPException(status_code=400, detail="Invalid category")
 
+    last_item = (
+        db.query(MenuItem)
+        .filter(
+            MenuItem.restaurant_id == r.id,
+            MenuItem.category_id == category_id,
+        )
+        .order_by(MenuItem.sort_order.desc())
+        .first()
+    )
+
+    next_sort_order = (
+        last_item.sort_order + 1
+        if last_item
+        else 0
+    )
+
     it = MenuItem(
         restaurant_id=r.id,
         category_id=category_id,
@@ -469,14 +674,250 @@ def create_category(
         description_el=description_el.strip() or None,
         description_en=description_en.strip() or None,
         price=float(price),
-        sort_order=sort_order,
+        sort_order=next_sort_order,
     )
 
     db.add(it)
     db.commit()
 
-    return RedirectResponse(url=f"/admin/restaurants/{rid}/menu", status_code=303)
+    return RedirectResponse(
+        url=f"/admin/restaurants/{rid}/menu",
+        status_code=303,
+    )
 
+@router.post("/restaurants/{rid}/items/{item_id}/move")
+def move_item(
+    request: Request,
+    rid: int,
+    item_id: int,
+    direction: str = Form(...),
+    csrf_token: str = Form(...),
+    db: Session = Depends(get_db),
+):
+    user = get_current_user(db, request)
+    verify_csrf_token(request, csrf_token)
+
+    r = db.query(Restaurant).filter(Restaurant.id == rid).first()
+
+    if not r:
+        raise HTTPException(status_code=404)
+
+    ensure_owner_or_superadmin(user, r)
+
+    item = (
+        db.query(MenuItem)
+        .filter(
+            MenuItem.id == item_id,
+            MenuItem.restaurant_id == r.id,
+        )
+        .first()
+    )
+
+    if not item:
+        raise HTTPException(status_code=404)
+
+    if direction not in ("up", "down"):
+        raise HTTPException(status_code=400, detail="Invalid direction")
+
+    items = (
+        db.query(MenuItem)
+        .filter(
+            MenuItem.restaurant_id == r.id,
+            MenuItem.category_id == item.category_id,
+        )
+        .order_by(
+            MenuItem.sort_order.asc(),
+            MenuItem.id.asc(),
+        )
+        .all()
+    )
+
+    current_index = next(
+        (i for i, it in enumerate(items) if it.id == item.id),
+        None,
+    )
+
+    if current_index is None:
+        raise HTTPException(status_code=404)
+
+    target_index = (
+        current_index - 1
+        if direction == "up"
+        else current_index + 1
+    )
+
+    if 0 <= target_index < len(items):
+        items[current_index], items[target_index] = (
+            items[target_index],
+            items[current_index],
+        )
+
+        for index, it in enumerate(items):
+            it.sort_order = index
+
+        db.commit()
+
+    return RedirectResponse(
+        url=f"/admin/restaurants/{rid}/menu",
+        status_code=303,
+    )
+
+@router.post("/restaurants/{rid}/items/{item_id}/delete")
+def delete_item(
+    request: Request,
+    rid: int,
+    item_id: int,
+    csrf_token: str = Form(...),
+    db: Session = Depends(get_db),
+):
+    user = get_current_user(db, request)
+    verify_csrf_token(request, csrf_token)
+
+    r = db.query(Restaurant).filter(Restaurant.id == rid).first()
+
+    if not r:
+        raise HTTPException(status_code=404)
+
+    ensure_owner_or_superadmin(user, r)
+
+    item = (
+        db.query(MenuItem)
+        .filter(
+            MenuItem.id == item_id,
+            MenuItem.restaurant_id == r.id,
+        )
+        .first()
+    )
+
+    if not item:
+        raise HTTPException(status_code=404)
+
+    category_id = item.category_id
+
+    db.delete(item)
+    db.commit()
+
+    remaining_items = (
+        db.query(MenuItem)
+        .filter(
+            MenuItem.restaurant_id == r.id,
+            MenuItem.category_id == category_id,
+        )
+        .order_by(
+            MenuItem.sort_order.asc(),
+            MenuItem.id.asc(),
+        )
+        .all()
+    )
+
+    for index, it in enumerate(remaining_items):
+        it.sort_order = index
+
+    db.commit()
+
+    return RedirectResponse(
+        url=f"/admin/restaurants/{rid}/menu",
+        status_code=303,
+    )
+
+@router.post("/restaurants/{rid}/items/{item_id}/edit")
+def edit_item(
+    request: Request,
+    rid: int,
+    item_id: int,
+    category_id: int = Form(...),
+    name_el: str = Form(...),
+    name_en: str = Form(""),
+    description_el: str = Form(""),
+    description_en: str = Form(""),
+    price: float = Form(...),
+    csrf_token: str = Form(...),
+    db: Session = Depends(get_db),
+):
+    user = get_current_user(db, request)
+    verify_csrf_token(request, csrf_token)
+
+    r = db.query(Restaurant).filter(Restaurant.id == rid).first()
+
+    if not r:
+        raise HTTPException(status_code=404)
+
+    ensure_owner_or_superadmin(user, r)
+
+    item = (
+        db.query(MenuItem)
+        .filter(
+            MenuItem.id == item_id,
+            MenuItem.restaurant_id == r.id,
+        )
+        .first()
+    )
+
+    if not item:
+        raise HTTPException(status_code=404)
+
+    old_category_id = item.category_id
+
+    category = (
+        db.query(MenuCategory)
+        .filter(
+            MenuCategory.id == category_id,
+            MenuCategory.restaurant_id == r.id,
+        )
+        .first()
+    )
+
+    if not category:
+        raise HTTPException(status_code=400, detail="Invalid category")
+
+    if category_id != old_category_id:
+        last_item = (
+            db.query(MenuItem)
+            .filter(
+                MenuItem.restaurant_id == r.id,
+                MenuItem.category_id == category_id,
+            )
+            .order_by(MenuItem.sort_order.desc())
+            .first()
+        )
+
+        item.sort_order = (
+            last_item.sort_order + 1
+            if last_item
+            else 0
+        )
+
+    item.category_id = category_id
+    item.name_el = name_el.strip()
+    item.name_en = name_en.strip()
+    item.description_el = description_el.strip()
+    item.description_en = description_en.strip()
+    item.price = price
+
+    if category_id != old_category_id:
+        old_items = (
+            db.query(MenuItem)
+            .filter(
+                MenuItem.restaurant_id == r.id,
+                MenuItem.category_id == old_category_id,
+                MenuItem.id != item.id,
+            )
+            .order_by(
+                MenuItem.sort_order.asc(),
+                MenuItem.id.asc(),
+            )
+            .all()
+        )
+
+        for index, old_item in enumerate(old_items):
+            old_item.sort_order = index
+
+    db.commit()
+
+    return RedirectResponse(
+        url=f"/admin/restaurants/{rid}/menu",
+        status_code=303,
+    )
 
 @router.get("/restaurants/{rid}/reviews", response_class=HTMLResponse)
 def admin_reviews(request: Request, rid: int, db: Session = Depends(get_db)):

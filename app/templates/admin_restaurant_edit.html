@@ -8,6 +8,7 @@
 
 <div class="card">
   <form method="post" action="/admin/restaurants/{{ r.id }}/save">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
     <label>Όνομα (EL)</label>
     <input name="name_el" value="{{ r.name_el }}" required>
 

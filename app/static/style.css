@@ -380,3 +380,131 @@ textarea{ resize: vertical; }
   color: #ffffff;
   border: 2px solid var(--card);
 }
+
+/* =====================================================
+
+   MENU ACCORDION
+
+===================================================== */
+
+.accordion{
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  margin-bottom: 14px;
+  overflow: hidden;
+
+  box-shadow:
+    0 8px 24px rgba(15, 23, 42, 0.06);
+
+  transition:
+    border-color 180ms ease,
+    box-shadow 180ms ease,
+    transform 180ms ease;
+}
+
+.accordion:hover{
+  box-shadow:
+    0 12px 30px rgba(15, 23, 42, 0.09);
+}
+
+.accordion-header{
+  width: 100%;
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+
+  padding: 18px 20px;
+
+  border: 0;
+  outline: 0;
+
+  background: var(--card);
+  color: var(--text);
+
+  font: inherit;
+  font-size: 17px;
+  font-weight: 800;
+  letter-spacing: 0.1px;
+  text-align: left;
+
+  cursor: pointer;
+
+  transition:
+    background 180ms ease,
+    color 180ms ease;
+}
+
+.accordion-header:hover{
+  background: var(--hover);
+}
+
+.accordion-header:focus-visible{
+  outline: 2px solid var(--link);
+  outline-offset: -2px;
+}
+
+.accordion-icon{
+  width: 32px;
+  height: 32px;
+
+  flex-shrink: 0;
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 999px;
+
+  background: var(--btnSecondary);
+  color: var(--muted);
+
+  transition:
+    transform 200ms ease,
+    background 180ms ease;
+}
+
+.accordion.open .accordion-icon{
+  transform: rotate(180deg);
+}
+
+.accordion-body{
+  max-height: 0;
+  overflow: hidden;
+
+  padding: 0 20px;
+
+  transition:
+    max-height 260ms ease,
+    padding 180ms ease;
+}
+
+.accordion.open .accordion-body{
+  padding-bottom: 10px;
+}
+
+.accordion-body .item{
+  padding: 16px 0;
+}
+
+.accordion-body .item:first-child{
+  border-top: 1px solid var(--divider);
+}
+
+.accordion-body .item-name{
+  font-size: 16px;
+  font-weight: 750;
+}
+
+.accordion-body .item-desc{
+  margin-top: 5px;
+  line-height: 1.45;
+}
+
+.accordion-body .item-price{
+  font-size: 16px;
+  font-weight: 850;
+  white-space: nowrap;
+}
