@@ -1,8 +1,23 @@
 {% extends "base.html" %}
 {% block content %}
 <div class="card center">
-  <h1>{{ tr(lang,"Ευχαριστούμε!","Thank you!") }}</h1>
-  <p class="muted">{{ tr(lang,"Η αξιολόγηση καταχωρήθηκε.","Your review was submitted.") }}</p>
+  {% if is_negative %}
+  <h1>{{ tr(lang,"Ευχαριστούμε για το feedback σας","Thank you for your feedback") }}</h1>
+  <p class="muted">
+    {{ tr(lang,
+      "Η αξιολόγησή σας καταχωρήθηκε και μας βοηθά να βελτιωθούμε.",
+      "Your review was submitted and helps us improve."
+    ) }}
+  </p>
+{% else %}
+  <h1>{{ tr(lang,"Ευχαριστούμε! ⭐","Thank you! ⭐") }}</h1>
+  <p class="muted">
+    {{ tr(lang,
+      "Η αξιολόγησή σας καταχωρήθηκε με επιτυχία.",
+      "Your review was submitted successfully."
+    ) }}
+  </p>
+{% endif %}
 
   {# ✅ Αν στάλθηκε φόρμα επικοινωνίας: δείχνουμε ΜΟΝΟ success + κουμπιά #}
   {% if contact_ok %}
@@ -23,23 +38,23 @@
     {% if is_negative %}
       <div style="margin-top:16px; text-align:left;">
         <h3 style="margin:0 0 8px 0;">
-          {{ tr(lang, "Θέλεις να το λύσουμε άμεσα;", "Want us to fix it quickly?") }}
-        </h3>
-        <p class="muted" style="margin:0 0 12px 0;">
-          {{ tr(lang,
-            "Προτείνουμε πρώτα να επικοινωνήσεις μαζί μας για να λυθεί το θέμα.",
-            "We recommend contacting us first so we can resolve the issue.") }}
-        </p>
+  {{ tr(lang,
+    "Θέλετε να μας δώσετε την ευκαιρία να το διορθώσουμε;",
+    "Would you give us the opportunity to make it right?"
+  ) }}
+</h3>
+
+<p class="muted" style="margin:0 0 12px 0;">
+  {{ tr(lang,
+    "Επικοινωνήστε με τον υπεύθυνο και πείτε μας τι συνέβη. Το feedback σας θα μας βοηθήσει να βρούμε μια λύση και να βελτιώσουμε την εμπειρία σας.",
+    "Contact the manager and tell us what happened. Your feedback will help us find a solution and improve your experience."
+  ) }}
+</p>
 
         <a class="btn" href="/r/{{ r.slug }}/contact?lang={{ lang }}&rid={{ request.query_params.get('rid','') }}">
           {{ tr(lang, "Επικοινωνία με τον υπεύθυνο", "Contact the manager") }}
         </a>
 
-        <p class="muted" style="margin-top:10px;">
-          {{ tr(lang,
-            "Αν παρ’ όλα αυτά θέλεις, μπορείς να αφήσεις κριτική και στο Google παρακάτω.",
-            "If you still want, you can also leave a Google review below.") }}
-        </p>
       </div>
 
       <hr style="margin:16px 0;">
@@ -49,22 +64,51 @@
     {% if google_review_url and review_text %}
       <textarea id="reviewText" style="position:absolute; left:-9999px;">{{ review_text|e }}</textarea>
 
-      <div style="margin-top: 16px;">
-        <a href="{{ google_review_url }}"
-           target="_blank"
-           rel="noopener noreferrer"
-           class="btn secondary"
-           onclick="copyAndGo(event)">
-          ⭐ {{ tr(lang,
-            is_negative and "Αν παρ’ όλα αυτά: Αντιγραφή & Google" or "Αντιγραφή & Άνοιγμα Google",
-            is_negative and "If you still want: Copy & Google" or "Copy & Open Google"
-          ) }}
-        </a>
+     <div style="margin-top:16px; text-align:left;">
 
-        <p class="muted" style="margin-top:8px;">
-          {{ tr(lang, "Μετά στο Google κάνε Ctrl+V και πάτα Υποβολή.", "On Google press Ctrl+V then Submit.") }}
-        </p>
-      </div>
+  {% if is_negative %}
+
+  <p class="muted" style="margin:0 0 12px 0;">
+    {{ tr(lang,
+      "Μπορείτε επίσης να μοιραστείτε την εμπειρία σας στο Google.",
+      "You can also share your experience on Google."
+    ) }}
+  </p>
+
+{% else %}
+
+  <h3 style="margin:0 0 8px 0;">
+    {{ tr(lang,
+      "Ένα τελευταίο βήμα",
+      "One last step"
+    ) }}
+  </h3>
+
+  <p class="muted" style="margin:0 0 12px 0;">
+    {{ tr(lang,
+      "Μοιραστείτε την εμπειρία σας και στο Google. Το σχόλιό σας θα αντιγραφεί αυτόματα για να γίνει πιο εύκολα.",
+      "Share your experience on Google too. Your comment will be copied automatically to make it easier."
+    ) }}
+  </p>
+
+{% endif %}
+
+  <a href="{{ google_review_url }}"
+     target="_blank"
+     rel="noopener noreferrer"
+     class="btn"
+     onclick="copyAndGo(event)">
+    ⭐ {{ tr(lang, "Συνέχεια στο Google", "Continue on Google") }}
+  </a>
+
+  <p class="muted" style="margin-top:8px;">
+    {{ tr(lang,
+      "Στο Google κάντε επικόλληση του σχολίου και πατήστε Δημοσίευση.",
+      "On Google, paste your comment and press Post."
+    ) }}
+  </p>
+
+</div>
 
       <script>
         async function copyAndGo(e) {
