@@ -919,6 +919,158 @@ def edit_item(
         status_code=303,
     )
 
+
+@router.get("/restaurants/{rid}/analytics", response_class=HTMLResponse)
+def admin_analytics(request: Request, rid: int, db: Session = Depends(get_db)):
+    user = get_current_user(db, request)
+
+    r = db.query(Restaurant).filter(Restaurant.id == rid).first()
+
+    if not r:
+        raise HTTPException(status_code=404)
+
+    ensure_owner_or_superadmin(user, r)
+
+    total_reviews = (
+        db.query(func.count(Review.id))
+        .filter(Review.restaurant_id == r.id)
+        .scalar()
+    ) or 0
+
+    average_rating = (
+        db.query(func.avg(Review.rating))
+        .filter(Review.restaurant_id == r.id)
+        .scalar()
+    )
+
+    average_rating = round(float(average_rating), 1) if average_rating is not None else 0
+
+    positive_reviews = (
+        db.query(func.count(Review.id))
+        .filter(
+            Review.restaurant_id == r.id,
+            Review.rating >= 4,
+        )
+        .scalar()
+    ) or 0
+
+    negative_reviews = (
+        db.query(func.count(Review.id))
+        .filter(
+            Review.restaurant_id == r.id,
+            Review.rating <= 3,
+        )
+        .scalar()
+    ) or 0
+
+    rating_rows = (
+        db.query(Review.rating, func.count(Review.id))
+        .filter(Review.restaurant_id == r.id)
+        .group_by(Review.rating)
+        .all()
+    )
+
+    rating_counts = {i: 0 for i in range(1, 6)}
+
+    for rating, count in rating_rows:
+        if rating in rating_counts:
+            rating_counts[rating] = count
+
+    positive_percentage = (
+        round((positive_reviews / total_reviews) * 100)
+        if total_reviews > 0
+        else 0
+    )
+
+    recent_reviews = (
+        db.query(Review)
+        .filter(Review.restaurant_id == r.id)
+        .order_by(Review.created_at.desc())
+        .limit(5)
+        .all()
+    )
+
+    tracked_positive_reviews = (
+        db.query(func.count(Review.id))
+        .filter(
+            Review.restaurant_id == r.id,
+            Review.rating >= 4,
+            Review.google_tracking_enabled == True,
+        )
+        .scalar()
+    ) or 0
+
+    google_clicks = (
+        db.query(func.count(Review.id))
+        .filter(
+            Review.restaurant_id == r.id,
+            Review.rating >= 4,
+            Review.google_tracking_enabled == True,
+            Review.google_clicked_at.isnot(None),
+        )
+        .scalar()
+    ) or 0
+
+    google_intent_rate = (
+        round((google_clicks / tracked_positive_reviews) * 100)
+        if tracked_positive_reviews > 0
+        else 0
+    )
+
+    tracked_negative_reviews = (
+        db.query(func.count(Review.id))
+        .filter(
+            Review.restaurant_id == r.id,
+            Review.rating <= 3,
+            Review.google_tracking_enabled == True,
+        )
+        .scalar()
+    ) or 0
+
+    negative_google_clicks = (
+        db.query(func.count(Review.id))
+        .filter(
+            Review.restaurant_id == r.id,
+            Review.rating <= 3,
+            Review.google_tracking_enabled == True,
+            Review.google_clicked_at.isnot(None),
+        )
+        .scalar()
+    ) or 0
+
+    negative_containment_rate = (
+        round(
+            (
+                (tracked_negative_reviews - negative_google_clicks)
+                / tracked_negative_reviews
+            )
+            * 100
+        )
+        if tracked_negative_reviews > 0
+        else 0
+    )
+    
+    return templates.TemplateResponse(
+        request=request,
+        name="admin_analytics.html",
+        context={
+            "r": r,
+            "total_reviews": total_reviews,
+            "average_rating": average_rating,
+            "positive_reviews": positive_reviews,
+            "negative_reviews": negative_reviews,
+            "rating_counts": rating_counts,
+            "positive_percentage": positive_percentage,
+            "recent_reviews": recent_reviews,
+            "tracked_positive_reviews": tracked_positive_reviews,
+            "google_clicks": google_clicks,
+            "google_intent_rate": google_intent_rate,
+            "tracked_negative_reviews": tracked_negative_reviews,
+            "negative_google_clicks": negative_google_clicks,
+            "negative_containment_rate": negative_containment_rate,
+        },
+    )
+
 @router.get("/restaurants/{rid}/reviews", response_class=HTMLResponse)
 def admin_reviews(request: Request, rid: int, db: Session = Depends(get_db)):
     user = get_current_user(db, request)

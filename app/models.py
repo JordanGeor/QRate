@@ -165,6 +165,9 @@ class Review(Base):
     rating = Column(Integer, nullable=False)
     notes = Column(Text, nullable=True)
 
+    google_clicked_at = Column(DateTime, nullable=True)
+    google_tracking_enabled = Column(Boolean, default=True, nullable=False)
+
     created_at = Column(DateTime, default=datetime.utcnow)
 
     restaurant = relationship(

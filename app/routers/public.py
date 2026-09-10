@@ -1,10 +1,13 @@
 import os
+import hmac
+import hashlib
 from ..models import Restaurant, MenuCategory, MenuItem, Review, ContactRequest
 from ..utils.mail import send_email
 from fastapi import APIRouter, Request, Form, HTTPException, Depends
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
+from datetime import datetime
 
 from ..db import get_db
 
@@ -32,6 +35,24 @@ def get_restaurant(db: Session, slug: str) -> Restaurant:
         raise HTTPException(status_code=404, detail="Restaurant not found")
     return r
 
+def sign_review_id(review_id: int) -> str:
+    secret = os.getenv("SESSION_SECRET", "")
+    if not secret:
+        raise RuntimeError("SESSION_SECRET is not configured")
+
+    return hmac.new(
+        secret.encode("utf-8"),
+        str(review_id).encode("utf-8"),
+        hashlib.sha256,
+    ).hexdigest()
+
+def verify_review_signature(review_id: int, signature: str) -> bool:
+    expected = sign_review_id(review_id)
+
+    return hmac.compare_digest(
+        expected,
+        signature,
+    )
 
 @router.get("/r/{slug}", response_class=HTMLResponse)
 def info_page(request: Request, slug: str, db: Session = Depends(get_db)):
@@ -118,13 +139,59 @@ def submit_review(
 
     db.add(rev)
     db.commit()
-    db.refresh(rev)  # για να έχουμε rev.id
+    db.refresh(rev)
+
+    sig = sign_review_id(rev.id)
 
     return RedirectResponse(
-        url=f"/r/{slug}/thanks?lang={lang}&rid={rev.id}",
+        url=f"/r/{slug}/thanks?lang={lang}&rid={rev.id}&sig={sig}",
         status_code=303,
     )
 
+@router.get("/r/{slug}/google")
+def google_redirect(
+    request: Request,
+    slug: str,
+    db: Session = Depends(get_db),
+):
+    r = get_restaurant(db, slug)
+
+    rid = request.query_params.get("rid")
+    sig = request.query_params.get("sig", "")
+
+    if (
+        not rid
+        or not rid.isdigit()
+        or not sig
+        or not verify_review_signature(int(rid), sig)
+    ):
+        raise HTTPException(status_code=400, detail="Invalid review")
+
+    rev = (
+        db.query(Review)
+        .filter(
+            Review.id == int(rid),
+            Review.restaurant_id == r.id,
+        )
+        .first()
+    )
+
+    if not rev:
+        raise HTTPException(status_code=404, detail="Review not found")
+
+    google_review_url = (r.google_review_url or "").strip()
+
+    if not google_review_url:
+        raise HTTPException(status_code=404, detail="Google review URL not configured")
+
+    if rev.google_clicked_at is None:
+        rev.google_clicked_at = datetime.utcnow()
+        db.commit()
+
+    return RedirectResponse(
+        url=google_review_url,
+        status_code=302,
+    )
 
 @router.get("/r/{slug}/thanks", response_class=HTMLResponse)
 def thanks_page(request: Request, slug: str, db: Session = Depends(get_db)):
@@ -134,14 +201,24 @@ def thanks_page(request: Request, slug: str, db: Session = Depends(get_db)):
     google_review_url = (getattr(r, "google_review_url", None) or "").strip() or None
 
     rid = request.query_params.get("rid")
+    sig = request.query_params.get("sig", "")
+
     review_text = ""
     rating = None
     is_negative = False
 
-    if rid and rid.isdigit():
+    if (
+        rid
+        and rid.isdigit()
+        and sig
+        and verify_review_signature(int(rid), sig)
+    ):
         rev = (
             db.query(Review)
-            .filter(Review.id == int(rid), Review.restaurant_id == r.id)
+            .filter(
+                Review.id == int(rid),
+                Review.restaurant_id == r.id,
+            )
             .first()
         )
         if rev:
@@ -163,6 +240,7 @@ def thanks_page(request: Request, slug: str, db: Session = Depends(get_db)):
             "rating": rating,
             "is_negative": is_negative,
             "contact_ok": contact_ok,
+            "sig": sig,
         },
     )
 
@@ -171,6 +249,7 @@ def contact_page(request: Request, slug: str, db: Session = Depends(get_db)):
     lang = get_lang(request)
     r = get_restaurant(db, slug)
     rid = request.query_params.get("rid", "")
+    sig = request.query_params.get("sig", "")
     return templates.TemplateResponse(
         request=request,
         name="public_contact.html",
@@ -179,6 +258,7 @@ def contact_page(request: Request, slug: str, db: Session = Depends(get_db)):
             "lang": lang,
             "tr": tr,
             "rid": rid,
+            "sig": sig,
         },
     )
 
@@ -188,8 +268,9 @@ def submit_contact(
     request: Request,
     slug: str,
     rid: str = Form(""),
+    sig: str = Form(""),
     name: str = Form(""),
-    email: str = Form(""),   # ✅ νέο
+    email: str = Form(""),
     phone: str = Form(""),
     message: str = Form(...),
     db: Session = Depends(get_db),
@@ -197,7 +278,23 @@ def submit_contact(
     lang = get_lang(request)
     r = get_restaurant(db, slug)
 
-    review_id = int(rid) if (rid and rid.isdigit()) else None
+    review_id = None
+
+    if rid and rid.isdigit() and sig:
+        candidate_review_id = int(rid)
+
+        if verify_review_signature(candidate_review_id, sig):
+            rev = (
+                db.query(Review)
+                .filter(
+                    Review.id == candidate_review_id,
+                    Review.restaurant_id == r.id,
+                )
+                .first()
+            )
+
+            if rev:
+                review_id = rev.id
 
     # ✅ 1) Save στη DB
     cr = ContactRequest(

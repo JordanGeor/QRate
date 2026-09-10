@@ -1,0 +1,214 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="card">
+  <div style="display:flex; justify-content:space-between; align-items:center; gap:10px;">
+    <div>
+      <h1 style="margin-bottom:6px;">📊 Analytics</h1>
+      <p class="muted" style="margin:0;">
+        {{ r.name_el }}
+      </p>
+    </div>
+
+    <a class="btn secondary" href="/admin">
+      Επιστροφή
+    </a>
+  </div>
+</div>
+
+<h2 style="margin-top:24px; margin-bottom:12px;">
+  Συνολική Εικόνα
+</h2>
+
+<div class="analytics-grid">
+
+  <div class="card">
+    <p class="muted" style="margin:0 0 6px 0;">
+      Συνολικές Αξιολογήσεις
+    </p>
+    <h2 style="margin:0;">
+      {{ total_reviews }}
+    </h2>
+  </div>
+
+  <div class="card">
+    <p class="muted" style="margin:0 0 6px 0;">
+      Μέση Βαθμολογία
+    </p>
+    <h2 style="margin:0;">
+      {% if total_reviews > 0 %}
+        {{ average_rating }} ⭐
+      {% else %}
+        —
+      {% endif %}
+    </h2>
+  </div>
+
+  <div class="card">
+    <p class="muted" style="margin:0 0 6px 0;">
+      Θετικές Αξιολογήσεις
+    </p>
+    <h2 style="margin:0;">
+      {{ positive_reviews }} 👍
+    </h2>
+  </div>
+
+  <div class="card">
+    <p class="muted" style="margin:0 0 6px 0;">
+      Αρνητικές Αξιολογήσεις
+    </p>
+    <h2 style="margin:0;">
+      {{ negative_reviews }} 👎
+    </h2>
+  </div>
+
+  <div class="card">
+    <p class="muted" style="margin:0 0 6px 0;">
+      Ποσοστό Θετικών Αξιολογήσεων
+    </p>
+    <h2 style="margin:0;">
+      {% if total_reviews > 0 %}
+        {{ positive_percentage }}%
+      {% else %}
+        —
+      {% endif %}
+    </h2>
+  </div>
+
+</div>
+
+<h2 style="margin-top:24px; margin-bottom:12px;">
+  Απόδοση QRate
+</h2>
+
+<div class="analytics-grid">
+
+<div class="card">
+  <p class="muted" style="margin:0 0 6px 0;">
+    Θετικές → Google
+  </p>
+
+  <h2 style="margin:0;">
+    {% if tracked_positive_reviews > 0 %}
+      {{ google_intent_rate }}%
+    {% else %}
+      —
+    {% endif %}
+  </h2>
+</div>
+
+<div class="card">
+  <p class="muted" style="margin:0 0 6px 0;">
+    <p class="muted" style="margin:0 0 6px 0;">
+  Αρνητικές → Όχι Google
+</p>
+  </p>
+
+  <h2 style="margin:0;">
+    {% if tracked_negative_reviews > 0 %}
+      {{ negative_containment_rate }}%
+    {% else %}
+      —
+    {% endif %}
+  </h2>
+</div>
+
+<div class="card">
+  <h2 style="margin-bottom:14px;">
+    Κατανομή Αξιολογήσεων
+  </h2>
+
+{% for star in [5, 4, 3, 2, 1] %}
+  {% set count = rating_counts.get(star, 0) %}
+  {% set percent = (count / total_reviews * 100) if total_reviews > 0 else 0 %}
+
+  <div style="display:flex; align-items:center; gap:12px; margin:12px 0;">
+
+    <div style="width:45px;">
+      {{ star }} ⭐
+    </div>
+
+    <div style="
+      flex:1;
+      height:10px;
+      background:var(--border);
+      border-radius:999px;
+      overflow:hidden;
+    ">
+    <div
+        class="rating-bar-fill"
+        data-width="{{ percent }}"
+    ></div>
+    </div>
+
+    <div style="width:30px; text-align:right;">
+      {{ count }}
+    </div>
+  </div>
+{% endfor %}
+
+</div>
+
+<div class="card">
+  <h2 style="margin-bottom:14px;">
+    Πρόσφατες Αξιολογήσεις
+  </h2>
+
+  {% if recent_reviews %}
+    {% for review in recent_reviews %}
+      <div style="
+        padding:12px 0;
+        border-bottom:1px solid var(--border);
+      ">
+       <div style="display:flex; justify-content:space-between; align-items:center; gap:12px;">
+          <strong>
+            {{ review.rating }} ⭐
+          </strong>
+
+          <span class="muted" style="font-size:0.9rem;">
+            {{ review.created_at.strftime("%d/%m/%Y") }}
+          </span>
+        </div>
+
+        {% if review.notes %}
+          <p style="margin:6px 0 0 0;">
+            {{ review.notes }}
+          </p>
+        {% else %}
+          <p class="muted" style="margin:6px 0 0 0;">
+            Χωρίς σχόλιο
+          </p>
+        {% endif %}
+      </div>
+    {% endfor %}
+  {% else %}
+    <p class="muted">
+      Δεν υπάρχουν ακόμα αξιολογήσεις.
+    </p>
+  {% endif %}
+</div>
+
+<style>
+  .rating-bar-fill {
+    height: 100%;
+    background: #f5b301;
+    border-radius: 999px;
+    width: 0;
+  }
+
+  .analytics-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 16px;
+    }
+</style>
+
+<script>
+  document.querySelectorAll(".rating-bar-fill").forEach(function (bar) {
+    const width = Number(bar.dataset.width) || 0;
+    bar.style.width = Math.max(0, Math.min(100, width)) + "%";
+  });
+
+</script>
+
+{% endblock %}

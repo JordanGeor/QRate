@@ -34,31 +34,31 @@
 
   {% else %}
 
-    {# ✅ Αρνητική ροή: πρώτα επικοινωνία με υπεύθυνο #}
-    {% if is_negative %}
-      <div style="margin-top:16px; text-align:left;">
-        <h3 style="margin:0 0 8px 0;">
-  {{ tr(lang,
-    "Θέλετε να μας δώσετε την ευκαιρία να το διορθώσουμε;",
-    "Would you give us the opportunity to make it right?"
-  ) }}
-</h3>
+    {# ✅ Αρνητική ροή: πρώτα προσωπικό, μετά υπεύθυνος αν χρειαστεί #}
+{% if is_negative %}
+  <div style="margin-top:16px; text-align:left;">
+    <h3 style="margin:0 0 8px 0;">
+      {{ tr(lang,
+        "Μπορούμε να το διορθώσουμε;",
+        "Can we make it right?"
+      ) }}
+    </h3>
 
-<p class="muted" style="margin:0 0 12px 0;">
-  {{ tr(lang,
-    "Επικοινωνήστε με τον υπεύθυνο και πείτε μας τι συνέβη. Το feedback σας θα μας βοηθήσει να βρούμε μια λύση και να βελτιώσουμε την εμπειρία σας.",
-    "Contact the manager and tell us what happened. Your feedback will help us find a solution and improve your experience."
-  ) }}
-</p>
+    <p class="muted" style="margin:0 0 12px 0;">
+      {{ tr(lang,
+        "Μιλήστε πρώτα με το προσωπικό ώστε να προσπαθήσουμε να βρούμε άμεσα μια λύση. Αν το θέμα δεν μπορέσει να λυθεί, μπορείτε να επικοινωνήσετε με τον υπεύθυνο του καταστήματος.",
+        "Please speak with our staff first so we can try to resolve the issue immediately. If the issue cannot be resolved, you can contact the manager."
+      ) }}
+    </p>
 
-        <a class="btn" href="/r/{{ r.slug }}/contact?lang={{ lang }}&rid={{ request.query_params.get('rid','') }}">
-          {{ tr(lang, "Επικοινωνία με τον υπεύθυνο", "Contact the manager") }}
-        </a>
+    <a class="btn"
+       href="/r/{{ r.slug }}/contact?lang={{ lang }}&rid={{ request.query_params.get('rid') }}&sig={{ sig }}">
+      {{ tr(lang, "Επικοινωνία με το κατάστημα", "Contact the restaurant") }}
+    </a>
+  </div>
 
-      </div>
-
-      <hr style="margin:16px 0;">
-    {% endif %}
+  <hr style="margin:16px 0;">
+{% endif %}
 
     {# ✅ Google (πάντα διαθέσιμο): Copy & Open όταν έχουμε κείμενο #}
     {% if google_review_url and review_text %}
@@ -93,7 +93,7 @@
 
 {% endif %}
 
-  <a href="{{ google_review_url }}"
+  <a href="/r/{{ r.slug }}/google?rid={{ request.query_params.get('rid') }}&sig={{ request.query_params.get('sig') }}"
      target="_blank"
      rel="noopener noreferrer"
      class="btn"
