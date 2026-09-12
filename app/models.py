@@ -82,6 +82,31 @@ class Restaurant(Base):
         cascade="all, delete-orphan",
     )
 
+class RestaurantTable(Base):
+    __tablename__ = "restaurant_tables"
+
+    id = Column(Integer, primary_key=True)
+
+    restaurant_id = Column(
+        Integer,
+        ForeignKey("restaurants.id"),
+        nullable=False,
+    )
+
+    name = Column(String(100), nullable=False)
+
+    token = Column(
+        String(64),
+        unique=True,
+        nullable=False,
+        index=True,
+    )
+
+    is_active = Column(Boolean, default=True, nullable=False)
+
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    restaurant = relationship("Restaurant")
 
 class MenuCategory(Base):
     __tablename__ = "menu_categories"
@@ -162,11 +187,20 @@ class Review(Base):
         nullable=False,
     )
 
+    table_id = Column(
+        Integer,
+        ForeignKey("restaurant_tables.id"),
+        nullable=True,
+    )
+
+    table = relationship("RestaurantTable")
+
     rating = Column(Integer, nullable=False)
     notes = Column(Text, nullable=True)
 
     google_clicked_at = Column(DateTime, nullable=True)
     google_tracking_enabled = Column(Boolean, default=True, nullable=False)
+    is_resolved = Column(Boolean, default=False, nullable=False)
 
     created_at = Column(DateTime, default=datetime.utcnow)
 

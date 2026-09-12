@@ -1,11 +1,15 @@
 {% extends "base.html" %}
 {% block content %}
 <div class="header">
-  <a class="back" href="/r/{{ r.slug }}?lang={{ lang }}">← {{ tr(lang,"Πίσω","Back") }}</a>
+  <a class="back"
+    href="/r/{{ r.slug }}?lang={{ lang }}{% if table_token %}&t={{ table_token }}{% endif %}">
+    ← {{ tr(lang,"Πίσω","Back") }}
+  </a>
   <h1>{{ tr(lang,"Αξιολόγηση","Review") }}</h1>
 </div>
 
 <form class="card" method="post" action="/r/{{ r.slug }}/review?lang={{ lang }}">
+    <input type="hidden" name="table_token" value="{{ table_token }}">
   <div class="q">
     <div class="q-title">{{ tr(lang,"Βαθμολογία","Rating") }}</div>
 

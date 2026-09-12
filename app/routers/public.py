@@ -1,7 +1,14 @@
 import os
 import hmac
 import hashlib
-from ..models import Restaurant, MenuCategory, MenuItem, Review, ContactRequest
+from ..models import (
+    Restaurant,
+    RestaurantTable,
+    MenuCategory,
+    MenuItem,
+    Review,
+    ContactRequest,
+)
 from ..utils.mail import send_email
 from fastapi import APIRouter, Request, Form, HTTPException, Depends
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -58,6 +65,27 @@ def verify_review_signature(review_id: int, signature: str) -> bool:
 def info_page(request: Request, slug: str, db: Session = Depends(get_db)):
     lang = get_lang(request)
     r = get_restaurant(db, slug)
+
+    table_token = request.query_params.get("t", "").strip()
+    table = None
+
+    if table_token:
+        table = (
+            db.query(RestaurantTable)
+            .filter(
+                RestaurantTable.restaurant_id == r.id,
+                RestaurantTable.token == table_token,
+                RestaurantTable.is_active == True,
+            )
+            .first()
+        )
+
+        if not table:
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid table QR",
+            )
+
     return templates.TemplateResponse(
         request=request,
         name="public_info.html",
@@ -65,6 +93,8 @@ def info_page(request: Request, slug: str, db: Session = Depends(get_db)):
             "r": r,
             "lang": lang,
             "tr": tr,
+            "table": table,
+            "table_token": table_token,
         },
     )
 
@@ -73,6 +103,25 @@ def info_page(request: Request, slug: str, db: Session = Depends(get_db)):
 def menu_page(request: Request, slug: str, db: Session = Depends(get_db)):
     lang = get_lang(request)
     r = get_restaurant(db, slug)
+
+    table_token = request.query_params.get("t", "")
+
+    if table_token:
+        table = (
+            db.query(RestaurantTable)
+            .filter(
+                RestaurantTable.restaurant_id == r.id,
+                RestaurantTable.token == table_token,
+                RestaurantTable.is_active == True,
+            )
+            .first()
+        )
+
+        if not table:
+            raise HTTPException(
+                status_code=404,
+                detail="Invalid table QR",
+            )
 
     categories = (
         db.query(MenuCategory)
@@ -99,6 +148,7 @@ def menu_page(request: Request, slug: str, db: Session = Depends(get_db)):
             "tr": tr,
             "categories": categories,
             "items_by_cat": items_by_cat,
+            "table_token": table_token,
         },
     )
 
@@ -107,6 +157,28 @@ def menu_page(request: Request, slug: str, db: Session = Depends(get_db)):
 def review_page(request: Request, slug: str, db: Session = Depends(get_db)):
     lang = get_lang(request)
     r = get_restaurant(db, slug)
+
+    table_token = request.query_params.get("t", "").strip()
+
+    table = None
+
+    if table_token:
+        table = (
+            db.query(RestaurantTable)
+            .filter(
+                RestaurantTable.restaurant_id == r.id,
+                RestaurantTable.token == table_token,
+                RestaurantTable.is_active == True,
+            )
+            .first()
+        )
+
+        if not table:
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid table QR",
+            )
+
     return templates.TemplateResponse(
         request=request,
         name="public_review.html",
@@ -114,6 +186,8 @@ def review_page(request: Request, slug: str, db: Session = Depends(get_db)):
             "r": r,
             "lang": lang,
             "tr": tr,
+            "table": table,
+            "table_token": table_token,
         },
     )
 
@@ -123,16 +197,38 @@ def submit_review(
     slug: str,
     rating: int = Form(...),
     notes: str = Form(""),
+    table_token: str = Form(""),
     db: Session = Depends(get_db),
 ):
     lang = get_lang(request)
     r = get_restaurant(db, slug)
+
+    table = None
+    table_token = (table_token or "").strip()
+
+    if table_token:
+        table = (
+            db.query(RestaurantTable)
+            .filter(
+                RestaurantTable.restaurant_id == r.id,
+                RestaurantTable.token == table_token,
+                RestaurantTable.is_active == True,
+            )
+            .first()
+        )
+
+        if not table:
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid table QR",
+            )
 
     if rating < 1 or rating > 5:
         raise HTTPException(status_code=400, detail="Rating must be 1..5")
 
     rev = Review(
         restaurant_id=r.id,
+        table_id=table.id if table else None,
         rating=rating,
         notes=(notes or "").strip()[:2000],
     )
@@ -143,8 +239,10 @@ def submit_review(
 
     sig = sign_review_id(rev.id)
 
+    qtable = f"&t={table_token}" if table_token else ""
+
     return RedirectResponse(
-        url=f"/r/{slug}/thanks?lang={lang}&rid={rev.id}&sig={sig}",
+        url=f"/r/{slug}/thanks?lang={lang}&rid={rev.id}&sig={sig}{qtable}",
         status_code=303,
     )
 
@@ -250,6 +348,7 @@ def contact_page(request: Request, slug: str, db: Session = Depends(get_db)):
     r = get_restaurant(db, slug)
     rid = request.query_params.get("rid", "")
     sig = request.query_params.get("sig", "")
+    table_token = request.query_params.get("t", "")
     return templates.TemplateResponse(
         request=request,
         name="public_contact.html",
@@ -259,6 +358,7 @@ def contact_page(request: Request, slug: str, db: Session = Depends(get_db)):
             "tr": tr,
             "rid": rid,
             "sig": sig,
+            "table_token": table_token,
         },
     )
 
@@ -269,6 +369,7 @@ def submit_contact(
     slug: str,
     rid: str = Form(""),
     sig: str = Form(""),
+    table_token: str = Form(""),
     name: str = Form(""),
     email: str = Form(""),
     phone: str = Form(""),
@@ -325,9 +426,15 @@ def submit_contact(
     )
     send_email(subject, body, admin_email)
 
-    qrid = f"&rid={rid}" if (rid and rid.isdigit()) else ""
+    qreview = ""
+
+    if review_id is not None:
+        qreview = f"&rid={review_id}&sig={sig}"
+
+    qtable = f"&t={table_token}" if table_token else ""
+
     return RedirectResponse(
-        url=f"/r/{slug}/thanks?lang={lang}{qrid}&contact=ok",
+        url=f"/r/{slug}/thanks?lang={lang}{qreview}{qtable}&contact=ok",
         status_code=303,
     )
 

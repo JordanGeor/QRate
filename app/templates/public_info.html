@@ -2,8 +2,11 @@
 {% block content %}
 <div class="topbar">
   <div class="lang">
-    <a class="{{ 'active' if lang=='el' else '' }}" href="?lang=el">🇬🇷</a>
-    <a class="{{ 'active' if lang=='en' else '' }}" href="?lang=en">🇬🇧</a>
+    <a class="{{ 'active' if lang=='el' else '' }}"
+      href="?lang=el{% if table_token %}&t={{ table_token }}{% endif %}">🇬🇷</a>
+
+    <a class="{{ 'active' if lang=='en' else '' }}"
+      href="?lang=en{% if table_token %}&t={{ table_token }}{% endif %}">🇬🇧</a>
   </div>
 </div>
 
@@ -14,8 +17,14 @@
   {% if r.phone %}<p><a class="link" href="tel:{{ r.phone }}">{{ r.phone }}</a></p>{% endif %}
 
   <div class="btns">
-    <a class="btn" href="/r/{{ r.slug }}/menu?lang={{ lang }}">📋 {{ tr(lang,"Μενού","Menu") }}</a>
-    <a class="btn secondary" href="/r/{{ r.slug }}/review?lang={{ lang }}">⭐ {{ tr(lang,"Αξιολόγηση","Review") }}</a>
+    <a class="btn"
+      href="/r/{{ r.slug }}/menu?lang={{ lang }}{% if table_token %}&t={{ table_token }}{% endif %}">
+      📋 {{ tr(lang,"Μενού","Menu") }}
+    </a>
+    <a class="btn secondary"
+      href="/r/{{ r.slug }}/review?lang={{ lang }}{% if table_token %}&t={{ table_token }}{% endif %}">
+      ⭐ {{ tr(lang,"Αξιολόγηση","Review") }}
+    </a>
   </div>
 </div>
 {% endblock %}

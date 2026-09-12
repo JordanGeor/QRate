@@ -10,7 +10,8 @@
 
   <form method="post" action="/r/{{ r.slug }}/contact?lang={{ lang }}" style="text-align:left;">
     <input type="hidden" name="rid" value="{{ rid }}">
-    <input type="hidden" name="rid" value="{{ rid }}">
+    <input type="hidden" name="sig" value="{{ sig }}">
+    <input type="hidden" name="table_token" value="{{ table_token }}">
 
     <label class="muted">{{ tr(lang,"Όνομα","Name") }}</label>
     <input type="text" name="name" autocomplete="name">
@@ -26,7 +27,8 @@
 
     <div class="btns" style="margin-top:12px;">
       <button class="btn" type="submit">{{ tr(lang,"Αποστολή","Send") }}</button>
-      <a class="btn secondary" href="/r/{{ r.slug }}/thanks?lang={{ lang }}{% if rid %}&rid={{ rid }}{% endif %}">
+      <a class="btn secondary"
+        href="/r/{{ r.slug }}/thanks?lang={{ lang }}{% if rid %}&rid={{ rid }}{% endif %}{% if sig %}&sig={{ sig }}{% endif %}{% if table_token %}&t={{ table_token }}{% endif %}">
         {{ tr(lang,"Πίσω","Back") }}
       </a>
     </div>

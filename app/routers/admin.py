@@ -1,11 +1,16 @@
+import secrets
+import io
+import qrcode
+import os
+
 from sqlalchemy import func
 from fastapi import APIRouter, Request, Form, Depends, HTTPException
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse, StreamingResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
 from ..db import get_db
-from ..models import User, Restaurant, MenuCategory, MenuItem, Review, ContactRequest
+from ..models import User, Restaurant, MenuCategory, MenuItem, Review, ContactRequest, RestaurantTable
 from ..auth import (
     verify_password,
     hash_password,
@@ -161,6 +166,31 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
 
     counts_by_restaurant = {rid: cnt for rid, cnt in rows}
 
+    if user.role == "superadmin":
+        active_alerts = (
+            db.query(Review)
+            .filter(
+                Review.rating <= 3,
+                Review.table_id.isnot(None),
+                Review.is_resolved == False,
+            )
+            .order_by(Review.created_at.desc())
+            .all()
+        )
+    else:
+        active_alerts = (
+            db.query(Review)
+            .join(Restaurant, Restaurant.id == Review.restaurant_id)
+            .filter(
+                Restaurant.owner_id == user.id,
+                Review.rating <= 3,
+                Review.table_id.isnot(None),
+                Review.is_resolved == False,
+            )
+            .order_by(Review.created_at.desc())
+            .all()
+        )
+
     return templates.TemplateResponse(
         request=request,
         name="admin_dashboard.html",
@@ -169,6 +199,7 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
             "restaurants": restaurants,
             "counts_by_restaurant": counts_by_restaurant,
             "pending_users": pending_users,
+            "active_alerts": active_alerts,
             "csrf_token": csrf_token,
         },
     )
@@ -1071,6 +1102,221 @@ def admin_analytics(request: Request, rid: int, db: Session = Depends(get_db)):
         },
     )
 
+@router.get("/restaurants/{rid}/tables", response_class=HTMLResponse)
+def admin_tables(request: Request, rid: int, db: Session = Depends(get_db)):
+    user = get_current_user(db, request)
+
+    r = db.query(Restaurant).filter(Restaurant.id == rid).first()
+
+    if not r:
+        raise HTTPException(status_code=404)
+
+    ensure_owner_or_superadmin(user, r)
+
+    tables = (
+        db.query(RestaurantTable)
+        .filter(RestaurantTable.restaurant_id == r.id)
+        .order_by(RestaurantTable.id.asc())
+        .all()
+    )
+
+    csrf_token = get_csrf_token(request)
+
+    return templates.TemplateResponse(
+        request=request,
+        name="admin_tables.html",
+        context={
+            "r": r,
+            "tables": tables,
+            "csrf_token": csrf_token,
+        },
+    )
+
+@router.get("/restaurants/{rid}/tables/{table_id}/qr")
+def table_qr(
+    request: Request,
+    rid: int,
+    table_id: int,
+    db: Session = Depends(get_db),
+):
+    user = get_current_user(db, request)
+
+    r = db.query(Restaurant).filter(Restaurant.id == rid).first()
+
+    if not r:
+        raise HTTPException(status_code=404)
+
+    ensure_owner_or_superadmin(user, r)
+
+    table = (
+        db.query(RestaurantTable)
+        .filter(
+            RestaurantTable.id == table_id,
+            RestaurantTable.restaurant_id == r.id,
+        )
+        .first()
+    )
+
+    if not table:
+        raise HTTPException(status_code=404)
+
+    base_url = os.getenv(
+        "PUBLIC_BASE_URL",
+        str(request.base_url).rstrip("/"),
+    ).rstrip("/")
+
+    public_url = (
+        f"{base_url}/r/{r.slug}"
+        f"?t={table.token}"
+    )
+
+    img = qrcode.make(public_url)
+
+    buffer = io.BytesIO()
+    img.save(buffer, format="PNG")
+    buffer.seek(0)
+
+    return StreamingResponse(
+        buffer,
+        media_type="image/png",
+    )
+
+@router.post("/restaurants/{rid}/tables")
+def create_table(
+    request: Request,
+    rid: int,
+    name: str = Form(...),
+    csrf_token: str = Form(...),
+    db: Session = Depends(get_db),
+):
+    user = get_current_user(db, request)
+    verify_csrf_token(request, csrf_token)
+
+    r = db.query(Restaurant).filter(Restaurant.id == rid).first()
+
+    if not r:
+        raise HTTPException(status_code=404)
+
+    ensure_owner_or_superadmin(user, r)
+
+    table_name = (name or "").strip()
+
+    if not table_name:
+        raise HTTPException(status_code=400, detail="Table name is required")
+
+    existing_table = (
+        db.query(RestaurantTable)
+        .filter(
+            RestaurantTable.restaurant_id == r.id,
+            RestaurantTable.name == table_name,
+        )
+        .first()
+    )
+
+    if existing_table:
+        return RedirectResponse(
+            url=f"/admin/restaurants/{r.id}/tables?error=duplicate",
+            status_code=303,
+        )
+
+    table = RestaurantTable(
+        restaurant_id=r.id,
+        name=table_name[:100],
+        token=secrets.token_urlsafe(24),
+    )
+
+    db.add(table)
+    db.commit()
+
+    return RedirectResponse(
+        url=f"/admin/restaurants/{r.id}/tables",
+        status_code=303,
+    )
+
+@router.post("/restaurants/{rid}/tables/{table_id}/toggle")
+def toggle_table(
+    request: Request,
+    rid: int,
+    table_id: int,
+    csrf_token: str = Form(...),
+    db: Session = Depends(get_db),
+):
+    user = get_current_user(db, request)
+    verify_csrf_token(request, csrf_token)
+
+    r = db.query(Restaurant).filter(Restaurant.id == rid).first()
+
+    if not r:
+        raise HTTPException(status_code=404)
+
+    ensure_owner_or_superadmin(user, r)
+
+    table = (
+        db.query(RestaurantTable)
+        .filter(
+            RestaurantTable.id == table_id,
+            RestaurantTable.restaurant_id == r.id,
+        )
+        .first()
+    )
+
+    if not table:
+        raise HTTPException(status_code=404)
+
+    table.is_active = not table.is_active
+
+    db.commit()
+
+    return RedirectResponse(
+        url=f"/admin/restaurants/{r.id}/tables",
+        status_code=303,
+    )
+
+@router.post("/restaurants/{rid}/tables/{table_id}/delete")
+def delete_table(
+    request: Request,
+    rid: int,
+    table_id: int,
+    csrf_token: str = Form(...),
+    db: Session = Depends(get_db),
+):
+    user = get_current_user(db, request)
+    verify_csrf_token(request, csrf_token)
+
+    r = db.query(Restaurant).filter(Restaurant.id == rid).first()
+
+    if not r:
+        raise HTTPException(status_code=404)
+
+    ensure_owner_or_superadmin(user, r)
+
+    table = (
+        db.query(RestaurantTable)
+        .filter(
+            RestaurantTable.id == table_id,
+            RestaurantTable.restaurant_id == r.id,
+        )
+        .first()
+    )
+
+    if not table:
+        raise HTTPException(status_code=404)
+
+    db.query(Review).filter(
+        Review.table_id == table.id
+    ).update(
+        {Review.table_id: None},
+        synchronize_session=False,
+    )
+
+    db.delete(table)
+    db.commit()
+
+    return RedirectResponse(
+        url=f"/admin/restaurants/{r.id}/tables",
+        status_code=303,
+    )
+
 @router.get("/restaurants/{rid}/reviews", response_class=HTMLResponse)
 def admin_reviews(request: Request, rid: int, db: Session = Depends(get_db)):
     user = get_current_user(db, request)
@@ -1099,6 +1345,82 @@ def admin_reviews(request: Request, rid: int, db: Session = Depends(get_db)):
         },
     )
 
+@router.post("/reviews/{review_id}/resolve")
+def resolve_review_alert(
+    request: Request,
+    review_id: int,
+    csrf_token: str = Form(...),
+    db: Session = Depends(get_db),
+):
+    user = get_current_user(db, request)
+    verify_csrf_token(request, csrf_token)
+
+    review = db.query(Review).filter(Review.id == review_id).first()
+
+    if not review:
+        raise HTTPException(status_code=404)
+
+    restaurant = (
+        db.query(Restaurant)
+        .filter(Restaurant.id == review.restaurant_id)
+        .first()
+    )
+
+    if not restaurant:
+        raise HTTPException(status_code=404)
+
+    ensure_owner_or_superadmin(user, restaurant)
+
+    review.is_resolved = True
+    db.commit()
+
+    return RedirectResponse(
+        url="/admin",
+        status_code=303,
+    )
+
+@router.get("/alerts")
+def get_active_alerts(
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    user = get_current_user(db, request)
+
+    query = (
+        db.query(Review)
+        .filter(
+            Review.rating <= 3,
+            Review.table_id.isnot(None),
+            Review.is_resolved == False,
+        )
+    )
+
+    if user.role != "superadmin":
+        query = (
+            query
+            .join(Restaurant, Restaurant.id == Review.restaurant_id)
+            .filter(Restaurant.owner_id == user.id)
+        )
+
+    alerts = (
+        query
+        .order_by(Review.created_at.desc())
+        .all()
+    )
+
+    data = []
+
+    for rv in alerts:
+        data.append({
+            "id": rv.id,
+            "rating": rv.rating,
+            "notes": rv.notes or "",
+            "created_at": rv.created_at.isoformat() + "Z",
+            "table_name": rv.table.name if rv.table else "",
+            "restaurant_name": rv.restaurant.name_el if rv.restaurant else "",
+        })
+
+    return JSONResponse(content=data)
 
 @router.get("/restaurants/{rid}/contacts", response_class=HTMLResponse)
 def admin_contacts(request: Request, rid: int, db: Session = Depends(get_db)):

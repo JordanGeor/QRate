@@ -1,0 +1,314 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<style>
+  .tables-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .tables-title {
+    margin: 0;
+    font-size: 2rem;
+  }
+
+  .tables-subtitle {
+    margin: 6px 0 0;
+  }
+
+  .table-form {
+    display: flex;
+    gap: 12px;
+    align-items: end;
+    flex-wrap: wrap;
+  }
+
+  .table-form-field {
+    flex: 1;
+    min-width: 220px;
+    position: relative;
+  }
+
+  .table-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+    padding: 16px 0;
+    border-bottom: 1px solid rgba(128, 128, 128, 0.18);
+  }
+
+  .table-row:last-child {
+    border-bottom: none;
+  }
+
+  .table-name {
+    font-size: 1.05rem;
+  }
+
+  .table-url {
+    margin-top: 5px;
+    font-size: 0.9rem;
+  }
+
+  .table-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .status-active {
+    display: inline-block;
+    padding: 6px 12px;
+    border-radius: 999px;
+    background: rgba(34, 197, 94, 0.13);
+    color: #15803d;
+    font-weight: 600;
+    font-size: 0.9rem;
+  }
+
+  .status-inactive {
+    display: inline-block;
+    padding: 6px 12px;
+    border-radius: 999px;
+    background: rgba(220, 38, 38, 0.13);
+    color: #dc2626;
+    font-weight: 600;
+    font-size: 0.9rem;
+  }
+
+  .field-toast {
+  position: absolute;
+  left: 0;
+  bottom: calc(100% - 10px);
+
+  padding: 7px 10px;
+  border-radius: 8px;
+
+  background: rgba(220, 38, 38, 0.10);
+  color: #dc2626;
+
+  font-size: 0.9rem;
+  font-weight: 600;
+
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08);
+
+  z-index: 50;
+
+  animation: toastFade 0.8s ease 3.2s forwards;
+}
+
+.delete-button {
+    background: #dc2626;
+    color: white;
+    border-color: #dc2626;
+  }
+
+
+  @keyframes toastFade {
+    from {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    to {
+      opacity: 0;
+      transform: translateY(-8px);
+      visibility: hidden;
+    }
+  }
+
+  @media (max-width: 650px) {
+    .tables-header,
+    .table-row {
+      align-items: flex-start;
+      flex-direction: column;
+    }
+
+    .table-actions {
+      width: 100%;
+      justify-content: space-between;
+    }
+  }
+</style>
+
+
+<div class="card">
+  <div class="tables-header">
+
+    <div>
+      <h1 class="tables-title">
+        🪑 Τραπέζια & QR
+      </h1>
+
+      <p class="muted tables-subtitle">
+        {{ r.name_el }}
+      </p>
+    </div>
+
+    <a class="btn secondary" href="/admin">
+      ← Επιστροφή
+    </a>
+
+  </div>
+</div>
+
+<div class="card" style="margin-top:20px;">
+
+  <h2 style="margin-top:0;">
+    Προσθήκη τραπεζιού
+  </h2>
+
+  <form
+    method="post"
+    action="/admin/restaurants/{{ r.id }}/tables"
+    class="table-form"
+  >
+
+    <input
+      type="hidden"
+      name="csrf_token"
+      value="{{ csrf_token }}"
+    >
+
+    <div class="table-form-field">
+
+      {% if request.query_params.get("error") == "duplicate" %}
+      <div id="table-toast" class="field-toast">
+        ⚠️ Υπάρχει ήδη τραπέζι με αυτό το όνομα.
+      </div>
+      {% endif %}
+
+      <label for="name">
+        Όνομα τραπεζιού
+      </label>
+
+      <input
+        id="name"
+        name="name"
+        type="text"
+        placeholder="π.χ. Τραπέζι 12"
+        required
+      >
+
+    </div>
+
+    <button class="btn" type="submit">
+      + Προσθήκη
+    </button>
+
+  </form>
+
+</div>
+
+
+<div class="card" style="margin-top:20px;">
+
+  {% if tables %}
+
+    {% for table in tables %}
+
+      <div class="table-row">
+
+        <div>
+
+          <strong class="table-name">
+            {{ table.name }}
+          </strong>
+
+        </div>
+
+
+        <div class="table-actions">
+
+          {% if table.is_active %}
+
+            <span class="status-active">
+              Ενεργό
+            </span>
+
+          {% else %}
+
+            <span class="status-inactive">
+              Ανενεργό
+            </span>
+
+          {% endif %}
+
+
+          <form
+            method="post"
+            action="/admin/restaurants/{{ r.id }}/tables/{{ table.id }}/toggle"
+            style="margin:0;"
+          >
+            <input
+              type="hidden"
+              name="csrf_token"
+              value="{{ csrf_token }}"
+            >
+
+            <button class="btn secondary" type="submit">
+              {% if table.is_active %}
+                Απενεργοποίηση
+              {% else %}
+                Ενεργοποίηση
+              {% endif %}
+            </button>
+          </form>
+
+          <form
+            method="post"
+            action="/admin/restaurants/{{ r.id }}/tables/{{ table.id }}/delete"
+            style="margin:0;"
+            onsubmit="return confirm('Σίγουρα θέλεις να διαγράψεις αυτό το τραπέζι;');"
+          >
+            <input
+              type="hidden"
+              name="csrf_token"
+              value="{{ csrf_token }}"
+            >
+
+            <button class="btn delete-button" type="submit">
+              Χ
+            </button>
+          </form>
+
+          <a
+            class="btn" type="submit"
+            href="/admin/restaurants/{{ r.id }}/tables/{{ table.id }}/qr"
+            target="_blank"
+          >
+            QR
+          </a>
+
+        </div>
+
+      </div>
+
+    {% endfor %}
+
+  {% else %}
+
+    <p class="muted" style="margin:0;">
+      Δεν υπάρχουν ακόμη τραπέζια.
+    </p>
+
+  {% endif %}
+
+</div>
+
+
+{% if request.query_params.get("error") == "duplicate" %}
+<script>
+  setTimeout(() => {
+    const url = new URL(window.location.href);
+    url.searchParams.delete("error");
+    window.history.replaceState({}, "", url);
+  }, 4200);
+</script>
+{% endif %}
+
+{% endblock %}

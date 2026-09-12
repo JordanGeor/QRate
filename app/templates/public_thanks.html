@@ -28,8 +28,15 @@
     </p>
 
     <div class="btns" style="margin-top:14px;">
-      <a class="btn" href="/r/{{ r.slug }}?lang={{ lang }}">{{ tr(lang,"Επιστροφή","Back") }}</a>
-      <a class="btn secondary" href="/r/{{ r.slug }}/menu?lang={{ lang }}">{{ tr(lang,"Μενού","Menu") }}</a>
+      <a class="btn"
+        href="/r/{{ r.slug }}?lang={{ lang }}{% if request.query_params.get('t') %}&t={{ request.query_params.get('t') }}{% endif %}">
+        {{ tr(lang,"Επιστροφή","Back") }}
+      </a>
+
+      <a class="btn secondary"
+        href="/r/{{ r.slug }}/menu?lang={{ lang }}{% if request.query_params.get('t') %}&t={{ request.query_params.get('t') }}{% endif %}">
+        {{ tr(lang,"Μενού","Menu") }}
+      </a>
     </div>
 
   {% else %}
@@ -52,7 +59,7 @@
     </p>
 
     <a class="btn"
-       href="/r/{{ r.slug }}/contact?lang={{ lang }}&rid={{ request.query_params.get('rid') }}&sig={{ sig }}">
+      href="/r/{{ r.slug }}/contact?lang={{ lang }}&rid={{ request.query_params.get('rid') }}&sig={{ sig }}{% if request.query_params.get('t') %}&t={{ request.query_params.get('t') }}{% endif %}">
       {{ tr(lang, "Επικοινωνία με το κατάστημα", "Contact the restaurant") }}
     </a>
   </div>
@@ -147,8 +154,15 @@
     {% endif %}
 
     <div class="btns">
-      <a class="btn" href="/r/{{ r.slug }}?lang={{ lang }}">{{ tr(lang,"Επιστροφή","Back") }}</a>
-      <a class="btn secondary" href="/r/{{ r.slug }}/menu?lang={{ lang }}">{{ tr(lang,"Μενού","Menu") }}</a>
+      <a class="btn"
+        href="/r/{{ r.slug }}?lang={{ lang }}{% if request.query_params.get('t') %}&t={{ request.query_params.get('t') }}{% endif %}">
+        {{ tr(lang,"Επιστροφή","Back") }}
+      </a>
+
+      <a class="btn secondary"
+        href="/r/{{ r.slug }}/menu?lang={{ lang }}{% if request.query_params.get('t') %}&t={{ request.query_params.get('t') }}{% endif %}">
+        {{ tr(lang,"Μενού","Menu") }}
+      </a>
     </div>
 
   {% endif %}

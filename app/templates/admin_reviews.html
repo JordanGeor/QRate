@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% block content %}
+
 <div class="header">
   <a class="back" href="/admin">← Dashboard</a>
   <h1>Αξιολογήσεις: {{ r.name_el }}</h1>
@@ -7,11 +8,26 @@
 
 {% for rv in reviews %}
 <div class="card">
+
   <div class="muted">{{ rv.created_at }}</div>
+
   <div class="grid2">
-    <div> <b>{{ rv.reception }}</b></div>
+    <div>
+      <b>{{ rv.reception }}</b>
+    </div>
   </div>
-  {% if rv.notes %}<p>{{ rv.notes }}</p>{% endif %}
+
+  {% if rv.table %}
+    <p class="muted" style="margin:6px 0;">
+      Τραπέζι: <strong>{{ rv.table.name }}</strong>
+    </p>
+  {% endif %}
+
+  {% if rv.notes %}
+    <p>{{ rv.notes }}</p>
+  {% endif %}
+
 </div>
 {% endfor %}
+
 {% endblock %}
